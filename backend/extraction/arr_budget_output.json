@@ -1,0 +1,270 @@
+{
+  "target_year": "2024-25",
+  "fields": [
+    {
+      "field_label": "Cost of Generation of Power",
+      "schema_table_no": "2.2",
+      "arr_table_no": null,
+      "arr_row_label": null,
+      "unit": "Rs. Cr",
+      "approved_value": null,
+      "approved_by_year": {},
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is 0.00"
+    },
+    {
+      "field_label": "O&M Expenses for existing stations",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.22",
+      "arr_row_label": "Existing stations",
+      "unit": "Rs.Cr",
+      "approved_value": "177.97",
+      "approved_by_year": {
+        "2022-23": "163.12",
+        "2023-24": "170.38",
+        "2024-25": "177.97",
+        "2025-26": "185.9",
+        "2026-27": "194.98"
+      },
+      "note": null
+    },
+    {
+      "field_label": "O&M Expenses for new stations",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.22",
+      "arr_row_label": "New Stations",
+      "unit": "Rs.Cr",
+      "approved_value": "43.66",
+      "approved_by_year": {
+        "2022-23": "28.23",
+        "2023-24": "35.70",
+        "2024-25": "43.66",
+        "2025-26": "47.85",
+        "2026-27": "52.25"
+      },
+      "note": null
+    },
+    {
+      "field_label": "O&M Expenses - Total",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.22",
+      "arr_row_label": "Total",
+      "unit": "Rs.Cr",
+      "approved_value": "221.63",
+      "approved_by_year": {
+        "2022-23": "191.35",
+        "2023-24": "206.08",
+        "2024-25": "221.63",
+        "2025-26": "233.75",
+        "2026-27": "247.23"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Interest & Finance Charges",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.53",
+      "arr_row_label": "Total Interest & Finance Charges",
+      "unit": "Rs. Cr",
+      "approved_value": "189.37",
+      "approved_by_year": {
+        "2022-23": "126.03",
+        "2023-24": "168.90",
+        "2024-25": "189.37",
+        "2025-26": "199.55",
+        "2026-27": "204.25"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Depreciation",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.30",
+      "arr_row_label": "Total depreciation allowable during the year",
+      "unit": "Rs.Cr",
+      "approved_value": "175.00",
+      "approved_by_year": {
+        "2021-22": "128.33",
+        "2022-23": "146.80",
+        "2023-24": "166.31",
+        "2024-25": "175.00",
+        "2025-26": "185.65",
+        "2026-27": "204.76"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Repayment of master Trust Bond",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.60",
+      "arr_row_label": "Repayment of master trust bond",
+      "unit": "Rs. Cr",
+      "approved_value": "21.99",
+      "approved_by_year": {
+        "2022-23": "21.99",
+        "2023-24": "21.99",
+        "2024-25": "21.99",
+        "2025-26": "21.99",
+        "2026-27": "21.99"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Additional contribution to Master Trust",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.60",
+      "arr_row_label": "Additional contribution to master trust",
+      "unit": "Rs. Cr",
+      "approved_value": "21.6",
+      "approved_by_year": {
+        "2022-23": "21.6",
+        "2023-24": "21.6",
+        "2024-25": "21.6",
+        "2025-26": "21.6",
+        "2026-27": "21.6"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Amortisation of intangible assets",
+      "schema_table_no": "2.2",
+      "arr_table_no": null,
+      "arr_row_label": null,
+      "unit": "Rs. Cr",
+      "approved_value": null,
+      "approved_by_year": {},
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is 0.00"
+    },
+    {
+      "field_label": "RoE",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.60",
+      "arr_row_label": "Return on Equity",
+      "unit": "Rs. Cr",
+      "approved_value": "116.38",
+      "approved_by_year": {
+        "2022-23": "116.38",
+        "2023-24": "116.38",
+        "2024-25": "116.38",
+        "2025-26": "116.38",
+        "2026-27": "116.38"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Exceptional Items",
+      "schema_table_no": "2.2",
+      "arr_table_no": null,
+      "arr_row_label": null,
+      "unit": "Rs. Cr",
+      "approved_value": null,
+      "approved_by_year": {},
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is blank/0"
+    },
+    {
+      "field_label": "Others",
+      "schema_table_no": "2.2",
+      "arr_table_no": null,
+      "arr_row_label": null,
+      "unit": "Rs. Cr",
+      "approved_value": null,
+      "approved_by_year": {},
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is blank/0"
+    },
+    {
+      "field_label": "ARR",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.60",
+      "arr_row_label": "Aggregate Revenue Requirement",
+      "unit": "Rs. Cr",
+      "approved_value": "745.97",
+      "approved_by_year": {
+        "2022-23": "624.15",
+        "2023-24": "701.26",
+        "2024-25": "745.97",
+        "2025-26": "778.92",
+        "2026-27": "816.21"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Less Non-Tariff Income",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.63",
+      "arr_row_label": "Less Other Income",
+      "unit": "Rs. Cr",
+      "approved_value": "11.35",
+      "approved_by_year": {
+        "2022-23": "10.30",
+        "2023-24": "10.81",
+        "2024-25": "11.35",
+        "2025-26": "11.92",
+        "2026-27": "12.52"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Net ARR (Transferred to SBU-D)",
+      "schema_table_no": "2.2",
+      "arr_table_no": "4.63",
+      "arr_row_label": "Net ARR of SBU G",
+      "unit": "Rs. Cr",
+      "approved_value": "734.62",
+      "approved_by_year": {
+        "2022-23": "613.85",
+        "2023-24": "690.45",
+        "2024-25": "734.62",
+        "2025-26": "767.00",
+        "2026-27": "803.69"
+      },
+      "note": null
+    },
+    {
+      "field_label": "Employee Cost",
+      "schema_table_no": "2.7",
+      "arr_table_no": "4.23",
+      "arr_row_label": "Employee expense",
+      "unit": "% / Rs. Cr",
+      "approved_value": "170.72",
+      "approved_by_year": {
+        "2022-23": "147.39",
+        "2023-24": "158.74",
+        "2024-25": "170.72",
+        "2025-26": "180.06",
+        "2026-27": "190.44"
+      },
+      "note": null
+    },
+    {
+      "field_label": "A&G Expenses",
+      "schema_table_no": "2.7",
+      "arr_table_no": "4.23",
+      "arr_row_label": "A&G expenses",
+      "unit": "% / Rs. Cr",
+      "approved_value": "9.57",
+      "approved_by_year": {
+        "2022-23": "8.27",
+        "2023-24": "8.90",
+        "2024-25": "9.57",
+        "2025-26": "10.10",
+        "2026-27": "10.68"
+      },
+      "note": null
+    },
+    {
+      "field_label": "R&M Expenses",
+      "schema_table_no": "2.7",
+      "arr_table_no": "4.23",
+      "arr_row_label": "R&M expenses",
+      "unit": "% / Rs. Cr",
+      "approved_value": "41.33",
+      "approved_by_year": {
+        "2022-23": "35.69",
+        "2023-24": "38.43",
+        "2024-25": "41.33",
+        "2025-26": "43.59",
+        "2026-27": "46.11"
+      },
+      "note": null
+    }
+  ]
+}

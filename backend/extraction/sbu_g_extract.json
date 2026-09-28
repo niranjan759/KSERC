@@ -1,0 +1,3350 @@
+{
+  "Truing Up Order 23-24.pdf": {
+    "order_tables": [
+      {
+        "table_no": "2.1",
+        "title": "Summary of the KSEBL own generation capacity as on 31.03.2024",
+        "pages": [
+          19
+        ],
+        "header": [
+          "Source",
+          "Installed Capacity (MW) as on 31.03.2024"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "Hydel",
+            "2096.61"
+          ],
+          [
+            "Thermal",
+            "159.96"
+          ],
+          [
+            "Wind",
+            "2.03"
+          ],
+          [
+            "Solar",
+            "49.60"
+          ],
+          [
+            "Total (Generation)",
+            "2308.20"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.2",
+        "title": "KSEB Ltd.-Transfer Cost of SBU-G as per truing up petition for the year 2023-24 (Rs. Cr)",
+        "pages": [
+          19,
+          20
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "MYT Order dated 25.06.2022",
+          "Actuals",
+          "TU Sought",
+          "Difference over approval"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Cost of Generation of Power",
+            "0.00",
+            "0.34",
+            "0.34",
+            "0.34"
+          ],
+          [
+            "2",
+            "O&M Expenses for existing stations",
+            "170.38",
+            "291.33",
+            "175.66",
+            "-16.62"
+          ],
+          [
+            null,
+            "O&M Expenses for new stations",
+            "35.70",
+            null,
+            "13.80",
+            null
+          ],
+          [
+            null,
+            "O&M Expenses - Total",
+            "206.08",
+            null,
+            "189.46",
+            null
+          ],
+          [
+            "3",
+            "Interest & Finance Charges",
+            "168.90",
+            "120.03",
+            "155.96",
+            "-12.94"
+          ],
+          [
+            "4",
+            "Depreciation",
+            "166.31",
+            "773.85",
+            "159.67",
+            "-6.64"
+          ],
+          [
+            "5",
+            "Repayment of master Trust Bond",
+            "21.99",
+            "0.00",
+            "21.99",
+            "0.00"
+          ],
+          [
+            "6",
+            null,
+            "21.60",
+            "0.00",
+            "21.60",
+            "0.00"
+          ],
+          [
+            "7",
+            "Amortisation of intangible assets",
+            "0.00",
+            "1.20",
+            "1.20",
+            "1.20"
+          ],
+          [
+            "8",
+            "RoE",
+            "116.38",
+            "116.38",
+            "116.38",
+            "0.00"
+          ],
+          [
+            "9",
+            "Exceptional Items",
+            "",
+            "0.18",
+            "0.18",
+            "0.18"
+          ],
+          [
+            "10",
+            "Others",
+            "",
+            "0.07",
+            "0.07",
+            "0.07"
+          ],
+          [
+            "11",
+            "ARR",
+            "701.26",
+            "1303.22",
+            "666.69",
+            "-34.57"
+          ],
+          [
+            "12",
+            "Less Non-Tariff Income",
+            "10.81",
+            "33.21",
+            "40.21",
+            "29.40"
+          ],
+          [
+            "13",
+            "Net ARR (Transferred to SBU-D)",
+            "690.45",
+            "1270.01",
+            "626.48",
+            "-63.97"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.3",
+        "title": "Generation from internal generating stations for the year 2023-24",
+        "pages": [
+          20
+        ],
+        "header": [
+          "Source",
+          "ARR&ERC Order dated 25.06.2022 Gross generation",
+          "Aux. consumption",
+          "Net generation",
+          "Truing up petition as per accounts Gross generation",
+          "Aux. consumption",
+          "Net generation"
+        ],
+        "unit_row": [
+          null,
+          "(MU)",
+          "(MU)",
+          "(MU)",
+          "(MU)",
+          "(MU)",
+          "(MU)"
+        ],
+        "data_rows": [
+          [
+            "Hydro",
+            "7163.06",
+            "85.85",
+            "7077.21",
+            "5663.67",
+            "63.41",
+            "5600.26"
+          ],
+          [
+            "BDPP",
+            "0.00",
+            "0.00",
+            "0.00",
+            "0.00",
+            "0.00",
+            "0.00"
+          ],
+          [
+            "KDPP",
+            "0.00",
+            "0.00",
+            "0.00",
+            "0.36",
+            "0.36",
+            "0.00"
+          ],
+          [
+            "Wind",
+            "0.00",
+            "0.00",
+            "0.00",
+            "1.21",
+            "0.00",
+            "1.21"
+          ],
+          [
+            "Solar",
+            "72.68",
+            "0.18",
+            "72.50",
+            "55.93",
+            "0.00",
+            "55.93"
+          ],
+          [
+            "Total",
+            "7235.74",
+            "86.03",
+            "7149.71",
+            "5721.17",
+            "63.77",
+            "5657.40"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.4",
+        "title": "Hydel Generation for FY 2023-24 (MU)",
+        "pages": [
+          21
+        ],
+        "header": [
+          "Month",
+          "Generation",
+          "Aux Consumptio n",
+          "Net hydro Generation"
+        ],
+        "unit_row": [
+          null,
+          "(MU)",
+          "(MU)",
+          "(MU)"
+        ],
+        "data_rows": [
+          [
+            "Apr-23",
+            "590.59",
+            "6.49",
+            "584.10"
+          ],
+          [
+            "May-23",
+            "708.33",
+            "7.62",
+            "700.71"
+          ],
+          [
+            "Jun-23",
+            "463.70",
+            "5.51",
+            "458.19"
+          ],
+          [
+            "Jul-23",
+            "506.42",
+            "5.11",
+            "501.31"
+          ],
+          [
+            "Aug-23",
+            "477.89",
+            "5.02",
+            "472.87"
+          ],
+          [
+            "Sep-23",
+            "329.34",
+            "3.76",
+            "325.58"
+          ],
+          [
+            "Month",
+            "Generation",
+            "Aux Consumption",
+            "Net hydro Generation"
+          ],
+          [
+            null,
+            "(MU)",
+            "(MU)",
+            "(MU)"
+          ],
+          [
+            "Oct-23",
+            "501.12",
+            "5.42",
+            "495.70"
+          ],
+          [
+            "Nov-23",
+            "366.08",
+            "4.35",
+            "361.73"
+          ],
+          [
+            "Dec-23",
+            "385.82",
+            "4.54",
+            "381.28"
+          ],
+          [
+            "Jan-24",
+            "417.57",
+            "4.86",
+            "412.71"
+          ],
+          [
+            "Feb-24",
+            "427.87",
+            "5.04",
+            "422.83"
+          ],
+          [
+            "Mar-24",
+            "488.93",
+            "5.69",
+            "483.24"
+          ],
+          [
+            "Total",
+            "5663.66",
+            "63.41",
+            "5600.25"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.5",
+        "title": "Fuel Cost claimed by KSEB Ltd",
+        "pages": [
+          22
+        ],
+        "header": [
+          "Particulars",
+          "KDPP",
+          "BDPP",
+          "Hydro stations",
+          "Total"
+        ],
+        "unit_row": [
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "Oil",
+            "0.01",
+            "",
+            "",
+            "0.01"
+          ],
+          [
+            "HSD oil",
+            "0.00",
+            "",
+            "",
+            "0.00"
+          ],
+          [
+            "Lub oil",
+            "0.02",
+            "",
+            "0.05",
+            "0.07"
+          ],
+          [
+            "Lubricants and consumable stores",
+            "0.00",
+            "",
+            "0.26",
+            "0.26"
+          ],
+          [
+            "Total",
+            "0.03",
+            "0.00",
+            "0.31",
+            "0.34"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.6",
+        "title": "Station wise details of the fuel cost claimed for the Year 2023-24",
+        "pages": [
+          23
+        ],
+        "header": [
+          "Station",
+          "Heavy Fuel Oil (Furnace Oil, LSHS, Etc.)",
+          "H.S.D. Oil",
+          "Lub. Oil",
+          "For Hydel Power Generation",
+          "TOTAL"
+        ],
+        "unit_row": [
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "KDPP",
+            "0.01",
+            "",
+            "0.02",
+            "",
+            "0.03"
+          ],
+          [
+            "Generation Circle, Moozhiyar",
+            "",
+            "",
+            "",
+            "0.17",
+            "0.17"
+          ],
+          [
+            "Generation Circle, Moolamattom",
+            "",
+            "",
+            "0.05",
+            "0.07",
+            "0.12"
+          ],
+          [
+            "Generation Circle, Meencut",
+            "",
+            "",
+            "",
+            "",
+            "0"
+          ],
+          [
+            "Generation Circle, Kothamangalam",
+            "",
+            "",
+            "",
+            "0.02",
+            "0.02"
+          ],
+          [
+            "Generation Circle, Thrissur",
+            "",
+            "",
+            "",
+            "",
+            "0"
+          ],
+          [
+            "Total",
+            "0.01",
+            "",
+            "0.07",
+            "0.26",
+            "0.34"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.7",
+        "title": "O&M expenses of SBU-G claimed by KSEB Ltd (Rs. Cr)",
+        "pages": [
+          23
+        ],
+        "header": [
+          "No",
+          null,
+          null,
+          "Particulars",
+          null,
+          null,
+          "",
+          "ARR&ERC Order dated 25.06.2022",
+          "",
+          "Actual",
+          null,
+          null,
+          "Truing Up petition",
+          "Difference over approval"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "",
+            "1",
+            "",
+            "",
+            "Employee Cost",
+            "",
+            "206.08",
+            null,
+            null,
+            "",
+            "220.12",
+            "",
+            "189.46",
+            "16.62"
+          ],
+          [
+            "",
+            "2",
+            "",
+            "",
+            "A&G Expenses",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "48.32",
+            "",
+            null,
+            null
+          ],
+          [
+            "",
+            "3",
+            "",
+            "",
+            "R&M Expenses",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "22.89",
+            "",
+            null,
+            null
+          ],
+          [
+            "",
+            "4",
+            "",
+            "",
+            "Total",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "291.33",
+            "",
+            null,
+            null
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.8",
+        "title": "Actual inflation for the years 2022-23 and 2023-24",
+        "pages": [
+          27
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "2021-22",
+          "2022-23",
+          "2023-24"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "Consumer Price Index (2016 price level)",
+            "356.06",
+            "377.62",
+            "397.20"
+          ],
+          [
+            "",
+            "Increase in CPI over 2021-22",
+            "",
+            "6.06%",
+            "5.19%"
+          ],
+          [
+            "2",
+            "Whole Sale Price Index (base year 2011-12)",
+            "139.40",
+            "152.50",
+            "151.40"
+          ],
+          [
+            "",
+            "Increase in WPI over 2021-22",
+            "",
+            "9.40%",
+            "-0.72%"
+          ],
+          [
+            "3",
+            "Weighted average increase (70% CPI & 30%WPI)",
+            "",
+            "7.06%",
+            "3.41%"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.9",
+        "title": "O&M expenses of existing generating stations approved for the year 2023-24",
+        "pages": [
+          27
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "Amount (Rs. Cr)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "Normative O&M cost of existing station for 2021-22 as per Tariff Regulations, 2021",
+            "156.16"
+          ],
+          [
+            "2",
+            "Actual inflation for the year 2022-23",
+            "7.06%"
+          ],
+          [
+            "3",
+            "O&M cost of existing station allowable for the Year 2022-23",
+            "167.18"
+          ],
+          [
+            "4",
+            "Actual inflation for the year 2023-24",
+            "3.41%"
+          ],
+          [
+            "5",
+            "O&M cost approved for the Year 2023-24 for existing stations",
+            "172.89"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.10",
+        "title": "O&M cost allowable for RE projects for the year 2023-24",
+        "pages": [
+          28
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "O&M cost allowable for the base Year 2019-20 (Rs. lakh/MW)",
+          "Escalation factor (%)",
+          "O&M cost allowable for 2023-24 (Rs. lakh/MW)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "SHPs having capacity below 5MW",
+            "32.41",
+            "5.72%",
+            "40.49"
+          ],
+          [
+            "2",
+            "SHPs having capacity above 5MW to 25MW",
+            "23.47",
+            null,
+            "29.32"
+          ],
+          [
+            "4",
+            "Solar PV plants",
+            "6.00",
+            null,
+            "7.50"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.11",
+        "title": "O&M cost allowable for the generation projects commissioned after 2018-19",
+        "pages": [
+          28
+        ],
+        "header": [
+          "Sl.No",
+          "Projects",
+          "COD",
+          "Capa city (MW)",
+          "Project Type",
+          "Norms of O&M cost for the year FY 2023- 24 in lakhs",
+          "Addl O&M cost (Rs. Cr)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "I.",
+            "Hydel Stations",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "1",
+            "Chathankottunada",
+            "20-06-2021",
+            "6",
+            "Above 5MW",
+            "29.32",
+            "1.76"
+          ],
+          [
+            "2",
+            "Upper Kallar",
+            "30-09-2021",
+            "2",
+            "Below 5MW",
+            "40.49",
+            "0.81"
+          ],
+          [
+            "3",
+            "Poringalkuthu",
+            "7-06.2022",
+            "24",
+            "Above 5MW",
+            "29.32",
+            "7.04"
+          ],
+          [
+            "4",
+            "Peruvannamoozhy",
+            "19.07.2023",
+            "6",
+            "Above 5MW",
+            "29.32",
+            "1.17"
+          ],
+          [
+            "",
+            "Sub total",
+            "",
+            "38",
+            "",
+            "",
+            "10.78"
+          ],
+          [
+            "II",
+            "Solar projects",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "1",
+            "2019-20",
+            "",
+            "1.17",
+            "",
+            "7.5",
+            "0.09"
+          ],
+          [
+            "2",
+            "2020-21",
+            "",
+            "0.00",
+            null,
+            "7.5",
+            "0.00"
+          ],
+          [
+            "3",
+            "2021-22",
+            "",
+            "13.86",
+            null,
+            "7.5",
+            "1.04"
+          ],
+          [
+            "4",
+            "2022-23",
+            "",
+            "17.26",
+            null,
+            "7.5",
+            "1.29"
+          ],
+          [
+            "5",
+            "2023-24",
+            "",
+            "2.06",
+            null,
+            "7.5",
+            "0.08"
+          ],
+          [
+            "6",
+            "Sub total",
+            "",
+            "34.35",
+            null,
+            "7.5",
+            "2.50"
+          ],
+          [
+            "7",
+            "Grand total",
+            "",
+            "",
+            "",
+            "",
+            "13.28"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.12",
+        "title": "O&M cost approved for the year 2023-24",
+        "pages": [
+          29
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "O&M Cost approved for 2023-24"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "O&M cost allowable exiting stations upto the Year 2018-19",
+            "172.89"
+          ],
+          [
+            "2",
+            "O&M cost of new stations commissioned after 2018-19",
+            "13.28"
+          ],
+          [
+            "",
+            "Total",
+            "186.16"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.13",
+        "title": "O&M cost of SBU-G claimed and approved for the Year 2023-24",
+        "pages": [
+          29
+        ],
+        "header": [
+          "No",
+          null,
+          null,
+          "Particulars",
+          null,
+          null,
+          "ARR&ERC Order dated 25.06.2022",
+          null,
+          null,
+          "Actual",
+          null,
+          "Truing Up petition",
+          null,
+          null,
+          "KSERC Approval",
+          null,
+          null
+        ],
+        "unit_row": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "",
+          "(Rs. Cr)",
+          "",
+          "",
+          "(Rs. Cr)",
+          "",
+          "(Rs. Cr)",
+          "",
+          "",
+          "(Rs. Cr)",
+          ""
+        ],
+        "data_rows": [
+          [
+            "",
+            "1",
+            "",
+            "",
+            "Employee Cost",
+            "",
+            "206.08",
+            null,
+            null,
+            "",
+            "220.12",
+            "189.46",
+            null,
+            null,
+            "186.16",
+            null,
+            null
+          ],
+          [
+            "",
+            "2",
+            "",
+            "",
+            "A&G Expenses",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "48.32",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "",
+            "3",
+            "",
+            "",
+            "R&M Expenses",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "22.89",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "",
+            "4",
+            "",
+            "",
+            "Total",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "291.33",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.14",
+        "title": "Interest and financing charges claimed in the petition for 2023-24",
+        "pages": [
+          30
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "MYT Order dated 25.06.2022",
+          "As per audited accounts",
+          "Truing up petition"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Interest on Capital Liabilities",
+            "118.52",
+            "109.66",
+            "104.46"
+          ],
+          [
+            "2",
+            "Interest on GPF",
+            "12.73",
+            "9.94",
+            "9.94"
+          ],
+          [
+            "3",
+            "Interest on Working capital",
+            "6.87",
+            "5.25",
+            "9.21"
+          ],
+          [
+            "4",
+            "Interest on Master Trust Bonds",
+            "30.78",
+            "31.88",
+            "31.88"
+          ],
+          [
+            "5",
+            "Other Interests",
+            "0.00",
+            "0.59",
+            "0.47"
+          ],
+          [
+            "6",
+            "Sub Total",
+            "168.90",
+            "157.32",
+            "155.96"
+          ],
+          [
+            "7",
+            "Less: Capitalized",
+            "0.00",
+            "37.29",
+            "0.00"
+          ],
+          [
+            "8",
+            "Balance",
+            "168.90",
+            "120.03",
+            "155.96"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.15",
+        "title": "KSEBL- Interest on working capital claimed for SBU-G for the Year 2023-24",
+        "pages": [
+          30,
+          31
+        ],
+        "header": [
+          "Sl. No",
+          "Particulars",
+          "Amount"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Cost of fuel for FY 2022-23",
+            "0.34"
+          ],
+          [
+            "2",
+            "Cost of fuel for one month",
+            "0.03"
+          ],
+          [
+            "",
+            "O&M expenses",
+            ""
+          ],
+          [
+            "i",
+            "As per norms",
+            "175.66"
+          ],
+          [
+            "ii",
+            "O&M Expenses for new stations",
+            "13.80"
+          ],
+          [
+            "iii",
+            "Pay revision expenses",
+            "0"
+          ],
+          [
+            "iv",
+            "Repayment of master Trust Bond",
+            "21.99"
+          ],
+          [
+            "v",
+            "Additional contribution to Master Trust",
+            "21.6"
+          ],
+          [
+            "3",
+            "Total (I to v)",
+            "233.05"
+          ],
+          [
+            "4",
+            "O&M Expenses for one month",
+            "19.42"
+          ],
+          [
+            "5",
+            "Approved GFA - Plants and Equipment for FY 2023-24",
+            "6315.58"
+          ],
+          [
+            "6",
+            "Cost of maintenance of spares at 1% of historical cost",
+            "63.16"
+          ],
+          [
+            "7",
+            "Total requirement of working Capital=(2)+(4)+(6)",
+            "82.6"
+          ],
+          [
+            "8",
+            "Base rate as on 01-04-2023 (%)",
+            "9.15"
+          ],
+          [
+            "9",
+            "Interest rate on working capital (%)=Base rate+2",
+            "11.15"
+          ],
+          [
+            "10",
+            "Interest on working capital = (7)*(9)",
+            "9.21"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.16",
+        "title": "Interest on working capital approved for SBU-G for the year 2023-24",
+        "pages": [
+          32
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "Amount (Rs. Cr)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "O&M expenses of SBU-G for the year 2023-24",
+            "186.16"
+          ],
+          [
+            "2",
+            "O&M expenses of SBU-G for one month = (1)/12",
+            "15.51"
+          ],
+          [
+            "3",
+            "Gross Fixed Asset of SBU-G as on 01.04.2023 (excluding land)",
+            "5453.56"
+          ],
+          [
+            "4",
+            "Cost of maintenance of spares (1% of the historical cost)",
+            "54.54"
+          ],
+          [
+            "5",
+            "Total working capital eligible as per Regulation = (2)+(4)",
+            "70.05"
+          ],
+          [
+            "6",
+            "Base rate as on 01.04.2023",
+            "9.15%"
+          ],
+          [
+            "7",
+            "Interest rate on working capital = Base rate+2%",
+            "11.15%"
+          ],
+          [
+            "8",
+            "Interest on working capital = (5)x (7)",
+            "7.81"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.17",
+        "title": "Other charges claimed and approved for the year 2023-24",
+        "pages": [
+          33
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "Claimed in the Truing Up petition",
+          "KSERC approval"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Generation based incentive",
+            "0.19",
+            "0"
+          ],
+          [
+            "2",
+            "Other bank charges",
+            "0.28",
+            "0.28"
+          ],
+          [
+            "",
+            "Total",
+            "0.47",
+            "0.28"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.18",
+        "title": "Summary of the interest and finance charges of SBU-G for the year 2023-24",
+        "pages": [
+          34
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "MYT Order dated 25.06.2022",
+          "As per audited accounts",
+          "Truing up petition",
+          "KSERC Approval"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Interest on Capital Liabilities",
+            "118.52",
+            "109.66",
+            "104.46",
+            "85.41"
+          ],
+          [
+            "2",
+            "Interest on GPF",
+            "12.73",
+            "9.94",
+            "9.94",
+            "9.94"
+          ],
+          [
+            "3",
+            "Interest on Working capital",
+            "6.87",
+            "5.25",
+            "9.21",
+            "7.81"
+          ],
+          [
+            "4",
+            "Interest on Master Trust Bonds",
+            "30.78",
+            "31.88",
+            "31.88",
+            "31.88"
+          ],
+          [
+            "5",
+            "Other Interests",
+            "0.00",
+            "0.59",
+            "0.47",
+            "0.28"
+          ],
+          [
+            "6",
+            "Sub Total",
+            "168.90",
+            "157.32",
+            "155.96",
+            "135.32"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.19",
+        "title": "Approved Transfer Cost of SBU-G for 2023-24 (Rs. Cr)",
+        "pages": [
+          35
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "ARR Approval",
+          "Actuals",
+          "TU Sought",
+          "KSERC Approval"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Cost of Generation of Power",
+            "0.00",
+            "0.34",
+            "0.34",
+            "0.34"
+          ],
+          [
+            "2",
+            "O&M expenses",
+            "206.08",
+            "291.33",
+            "189.46",
+            "186.16"
+          ],
+          [
+            "3",
+            "Interest & Finance Charges",
+            "168.90",
+            "120.03",
+            "155.96",
+            "135.32"
+          ],
+          [
+            "4",
+            "Depreciation",
+            "166.31",
+            "773.85",
+            "159.67",
+            "157.02"
+          ],
+          [
+            "5",
+            "Repayment of master Trust Bond",
+            "21.99",
+            "0.00",
+            "21.99",
+            "21.99"
+          ],
+          [
+            "6",
+            "Additional contribution to Master Trust",
+            "21.60",
+            "0.00",
+            "21.60",
+            "21.60"
+          ],
+          [
+            "7",
+            "Amortisation of intangible assets",
+            "0.00",
+            "1.20",
+            "1.20",
+            "0.00"
+          ],
+          [
+            "8",
+            "RoE",
+            "116.38",
+            "116.38",
+            "116.38",
+            "116.38"
+          ],
+          [
+            "9",
+            "Exceptional Items",
+            "",
+            "0.18",
+            "0.18",
+            "0.02"
+          ],
+          [
+            "10",
+            "Others",
+            "",
+            "0.07",
+            "0.07",
+            "0.07"
+          ],
+          [
+            "11",
+            "ARR",
+            "701.26",
+            "1303.22",
+            "666.69",
+            "638.91"
+          ],
+          [
+            "12",
+            "Less Non-Tariff Income",
+            "10.81",
+            "33.21",
+            "40.21",
+            "40.21"
+          ],
+          [
+            "13",
+            "Net ARR (Transferred to SBU-D)",
+            "690.45",
+            "1270.01",
+            "626.48",
+            "598.70"
+          ]
+        ],
+        "needs_review": false
+      }
+    ],
+    "reference_tables": [
+      {
+        "table_no": "V3",
+        "title": "below:",
+        "pages": [
+          21
+        ],
+        "header": [
+          "Type of station",
+          "Station Capacity upto 200MW",
+          "Station Capacity above 200MW"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "Surface hydro-electric generating stations",
+            null,
+            null
+          ],
+          [
+            "Rotating Excitation",
+            "0.70%",
+            "0.70%"
+          ],
+          [
+            "Static Excitation",
+            "1.20%",
+            "1.00%"
+          ],
+          [
+            "Underground hydro-electric generating stations",
+            null,
+            null
+          ],
+          [
+            "Rotating Excitation",
+            "0.90%",
+            "0.90%"
+          ],
+          [
+            "Static Excitation",
+            "1.30%",
+            "1.20%"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "3",
+        "title": "O&M cost for the Generation business of KSEB Ltd. for the Control Period",
+        "pages": [
+          25
+        ],
+        "header": [
+          "",
+          "Previous Control period (Indicative only)",
+          null,
+          null,
+          null,
+          "Control period (Provisional)",
+          null,
+          null,
+          null,
+          null
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "Year",
+            "2018-19",
+            "2019-20",
+            "2020-21",
+            "2021-22",
+            "2022- 23",
+            "2023- 24",
+            "2024- 25",
+            "2025- 26",
+            "2026- 27"
+          ],
+          [
+            "SBU- G",
+            "135.51",
+            "142.07",
+            "148.95",
+            "156.16",
+            "163.12",
+            "170.38",
+            "177.97",
+            "185.9",
+            "194.18"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "1",
+        "title": "Computation of Escalation Factors for this MYT Regulation",
+        "pages": [
+          26
+        ],
+        "header": [
+          "Sl. No",
+          "Escalation factors/ year",
+          "2017-18",
+          "2018-19",
+          "2019-20",
+          "2020-21"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "CPI (Industrial Workers) 2001=100",
+            "284.42",
+            "299.90",
+            "322.50",
+            "338.69"
+          ],
+          [
+            "2",
+            "Annual CPI increase %",
+            "3.08",
+            "5.44",
+            "7.54",
+            "5.02"
+          ],
+          [
+            "3",
+            "WPI (2011-12) series",
+            "114.90",
+            "119.80",
+            "121.80",
+            "123.40"
+          ],
+          [
+            "4",
+            "Annual WPI increase %",
+            "2.96",
+            "4.26",
+            "1.67",
+            "1.31"
+          ],
+          [
+            "5",
+            "CPI:WPI (70:30) weightage (%)",
+            "3.04",
+            "5.09",
+            "5.78",
+            "3.91"
+          ],
+          [
+            "6",
+            "Average 4 Year annual increase @ 70:30 weightage (%)",
+            "4.454%",
+            null,
+            null,
+            null
+          ]
+        ],
+        "needs_review": false
+      }
+    ],
+    "unclassified_fragments": [
+      {
+        "table_no": null,
+        "title": null,
+        "pages": [
+          23
+        ],
+        "header": [
+          "Truing Up"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "petition"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": null,
+        "title": null,
+        "pages": [
+          23
+        ],
+        "header": [
+          "Difference"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "over approval"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": null,
+        "title": null,
+        "pages": [
+          29
+        ],
+        "header": [
+          "ARR&ERC Order"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "dated 25.06.2022"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": null,
+        "title": null,
+        "pages": [
+          29
+        ],
+        "header": [
+          "Truing Up"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "petition"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": null,
+        "title": null,
+        "pages": [
+          29
+        ],
+        "header": [
+          "KSERC"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "Approval"
+          ]
+        ],
+        "needs_review": false
+      }
+    ],
+    "chapter_heading": "CHAPTER-2 TRUING UP OF ACCOUNTS OF STRATEGIC BUSINESS UNIT GENERATION (SBU-G) Introduction",
+    "pages": [
+      19,
+      36
+    ]
+  },
+  "TRUING UP ORDER 24-25.pdf": {
+    "order_tables": [
+      {
+        "table_no": "2.1",
+        "title": "Summary of the KSEBL own generation capacity as on 31.03.2025",
+        "pages": [
+          22
+        ],
+        "header": [
+          "Source",
+          "Installed Capacity (MW) as on 31.03.2025"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "Hydel",
+            "2196.36"
+          ],
+          [
+            "Thermal",
+            "159.96"
+          ],
+          [
+            "Wind",
+            "2.03"
+          ],
+          [
+            "Solar",
+            "51.43"
+          ],
+          [
+            "Total (Generation)",
+            "2409.73"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.2",
+        "title": "KSEB Ltd.-Transfer Cost of SBU-G as per truing up petition for the year 2024-25 (Rs. Cr)",
+        "pages": [
+          22,
+          23
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "MYT Order dated 25.06.2022",
+          "Actuals",
+          "TU Sought",
+          "Difference over approval"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Cost of Generation of Power",
+            "0.00",
+            "5.17",
+            "5.17",
+            "5.17"
+          ],
+          [
+            "2",
+            "O&M Expenses for existing stations",
+            "177.97",
+            "493.97",
+            "178.15",
+            "-13.41"
+          ],
+          [
+            null,
+            "O&M Expenses for new stations",
+            "43.66",
+            null,
+            "30.07",
+            null
+          ],
+          [
+            null,
+            "O&M Expenses - Total",
+            "221.63",
+            null,
+            "208.22",
+            null
+          ],
+          [
+            "3",
+            "Interest & Finance Charges",
+            "189.37",
+            "115.53",
+            "196.15",
+            "6.78"
+          ],
+          [
+            "4",
+            "Depreciation",
+            "175.00",
+            "772.04",
+            "182.74",
+            "7.74"
+          ],
+          [
+            "5",
+            "Repayment of master Trust Bond",
+            "21.99",
+            "0.00",
+            "21.99",
+            "0.00"
+          ],
+          [
+            "6",
+            "Additional contribution to Master Trust",
+            "21.60",
+            "0.00",
+            "21.60",
+            "0.00"
+          ],
+          [
+            "7",
+            "Amortisation of intangible assets",
+            "0.00",
+            "1.32",
+            "1.32",
+            "1.32"
+          ],
+          [
+            "8",
+            "RoE",
+            "116.38",
+            "116.38",
+            "116.38",
+            "0.00"
+          ],
+          [
+            "9",
+            "Exceptional Items",
+            "",
+            "0.09",
+            "0.09",
+            "0.09"
+          ],
+          [
+            "10",
+            "Others",
+            "",
+            "14.10",
+            "0.00",
+            "0.00"
+          ],
+          [
+            "11",
+            "ARR",
+            "745.97",
+            "1518.60",
+            "753.66",
+            "7.69"
+          ],
+          [
+            "12",
+            "Less Non-Tariff Income",
+            "11.35",
+            "9.24",
+            "39.61",
+            "28.26"
+          ],
+          [
+            "13",
+            "Net ARR (Transferred to SBU-D)",
+            "734.62",
+            "1509.36",
+            "714.05",
+            "-20.57"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.3",
+        "title": "Generation from internal generating stations for the year 2024-25",
+        "pages": [
+          23
+        ],
+        "header": [
+          "Source",
+          "ARR&ERC Order dated 25.06.2022 Gross generation",
+          "Aux. consumption",
+          "Net generation",
+          "Truing up petition as per accounts Gross generation",
+          "Aux. consumption",
+          "Net generation"
+        ],
+        "unit_row": [
+          null,
+          "(MU)",
+          "(MU)",
+          "(MU)",
+          "(MU)",
+          "(MU)",
+          "(MU)"
+        ],
+        "data_rows": [
+          [
+            "Hydro",
+            "7469.13",
+            "89.38",
+            "7379.75",
+            "7343.81",
+            "93.68",
+            "7250.13"
+          ],
+          [
+            "BDPP",
+            "0.00",
+            "0.00",
+            "0.00",
+            "0",
+            "0.00",
+            "0.00"
+          ],
+          [
+            "KDPP",
+            "0.00",
+            "0.00",
+            "0.00",
+            "1.54",
+            "0.04",
+            "1.50"
+          ],
+          [
+            "Wind",
+            "0.00",
+            "0.00",
+            "0.00",
+            "1.04",
+            "0.00",
+            "1.04"
+          ],
+          [
+            "Solar",
+            "78.27",
+            "0.20",
+            "78.07",
+            "49.64",
+            "0.00",
+            "49.64"
+          ],
+          [
+            "Total",
+            "7547.40",
+            "89.58",
+            "7457.82",
+            "7396.03",
+            "93.72",
+            "7302.31"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.4",
+        "title": "Hydel Generation for FY 2024-25 (MU)",
+        "pages": [
+          24
+        ],
+        "header": [
+          "Month",
+          "Generatio n",
+          "Aux Cons umption",
+          "Net hydro Generati on"
+        ],
+        "unit_row": [
+          null,
+          "(MU)",
+          "(MU)",
+          "(MU)"
+        ],
+        "data_rows": [
+          [
+            "Apr-24",
+            "560.15",
+            "7.49",
+            "552.65"
+          ],
+          [
+            "May-24",
+            "538.04",
+            "7.30",
+            "530.75"
+          ],
+          [
+            "Jun-24",
+            "723.26",
+            "9.06",
+            "714.20"
+          ],
+          [
+            "Jul-24",
+            "876.31",
+            "10.28",
+            "866.02"
+          ],
+          [
+            "Aug-24",
+            "959.88",
+            "11.37",
+            "948.52"
+          ],
+          [
+            "Sep-24",
+            "786.20",
+            "9.59",
+            "776.62"
+          ],
+          [
+            "Month",
+            "Generati on",
+            "Aux Con sumption",
+            "Net hydro Generation"
+          ],
+          [
+            null,
+            "(MU)",
+            "(MU)",
+            "(MU)"
+          ],
+          [
+            "Oct-24",
+            "571.13",
+            "7.62",
+            "563.51"
+          ],
+          [
+            "Nov-24",
+            "493.22",
+            "7.13",
+            "486.09"
+          ],
+          [
+            "Dec-24",
+            "410.54",
+            "5.43",
+            "405.11"
+          ],
+          [
+            "Jan-25",
+            "452.37",
+            "5.95",
+            "446.42"
+          ],
+          [
+            "Feb-25",
+            "465.61",
+            "6.05",
+            "459.57"
+          ],
+          [
+            "Mar-25",
+            "507.09",
+            "6.41",
+            "500.68"
+          ],
+          [
+            "Total",
+            "7343.81",
+            "93.68",
+            "7250.13"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.5",
+        "title": "Fuel Cost claimed by KSEB Ltd",
+        "pages": [
+          26
+        ],
+        "header": [
+          "Particulars",
+          "KDPP",
+          "Hydro stations",
+          "Total"
+        ],
+        "unit_row": [
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "Oil",
+            "0.00",
+            "0.00",
+            "0.00"
+          ],
+          [
+            "HSD oil",
+            "0.00",
+            "0.00",
+            "0.00"
+          ],
+          [
+            "Lub oil",
+            "4.91",
+            "0.00",
+            "4.91"
+          ],
+          [
+            "Lubricants and consumable stores",
+            "0.00",
+            "0.26",
+            "0.26"
+          ],
+          [
+            "Total",
+            "4.91",
+            "0.26",
+            "5.17"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.6",
+        "title": "Station wise details of the fuel cost claimed for the Year 2024-25",
+        "pages": [
+          26
+        ],
+        "header": [
+          "Station",
+          "Heavy Fuel Oil (Furnace Oil, LSHS, Etc.)",
+          "H.S.D. Oil",
+          "Lub. Oil",
+          "Hydel stations",
+          "For Internal Combustion Power Gen.",
+          "Total"
+        ],
+        "unit_row": [
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "KDPP",
+            "0",
+            "0",
+            "4.91",
+            "0",
+            "0",
+            "4.91"
+          ],
+          [
+            "Generation Circle, Kozhikode",
+            "0",
+            "0",
+            "0",
+            "0.07",
+            "0",
+            "0.07"
+          ],
+          [
+            "Generation Circle, Moozhiyar",
+            "0",
+            "0",
+            "0",
+            "0.02",
+            "0",
+            "0.02"
+          ],
+          [
+            "Generation Circle, Moolamattom",
+            "0",
+            "0",
+            "0",
+            "0.07",
+            "0",
+            "0.07"
+          ],
+          [
+            "Generation Circle, Meencut",
+            "0",
+            "0",
+            "0",
+            "0.08",
+            "0",
+            "0.08"
+          ],
+          [
+            "Generation Circle, Kothamangalam",
+            "0",
+            "0",
+            "0",
+            "0.02",
+            "0",
+            "0.02"
+          ],
+          [
+            "Generation Circle, Thrissur",
+            "0",
+            "0",
+            "0",
+            "0.01",
+            "0",
+            "0.01"
+          ],
+          [
+            "Total",
+            "0",
+            "0",
+            "4.91",
+            "0.26",
+            "0",
+            "5.17"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.7",
+        "title": "O&M expenses of SBU-G claimed by KSEB Ltd (Rs. Cr)",
+        "pages": [
+          27
+        ],
+        "header": [
+          "No",
+          null,
+          null,
+          "Particulars",
+          null,
+          null,
+          "",
+          "ARR&ERC Order dated 25.06.2022",
+          "",
+          "Actual",
+          null,
+          null,
+          "Truing Up petition",
+          null,
+          null,
+          "Difference over approval",
+          null,
+          null
+        ],
+        "unit_row": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "",
+          "(Rs. Cr)",
+          "",
+          "",
+          "(Rs. Cr)",
+          "",
+          "",
+          "(Rs. Cr)",
+          "",
+          "",
+          "(Rs. Cr)",
+          ""
+        ],
+        "data_rows": [
+          [
+            "",
+            "1",
+            "",
+            "",
+            "Employee Cost",
+            "",
+            "221.62",
+            null,
+            null,
+            "",
+            "234.56",
+            "",
+            "208.22",
+            null,
+            null,
+            "13.4",
+            null,
+            null
+          ],
+          [
+            "",
+            "2",
+            "",
+            "",
+            "A&G Expenses",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "244.31",
+            "",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "",
+            "3",
+            "",
+            "",
+            "R&M Expenses",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "15.10",
+            "",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "",
+            "4",
+            "",
+            "",
+            "Total",
+            "",
+            null,
+            null,
+            null,
+            "",
+            "493.97",
+            "",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.8",
+        "title": "O&M cost allowable for RE projects for the year 2024-25",
+        "pages": [
+          29
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "O&M cost allowable for the base Year 2019- 20 (Rs. lakh/MW)",
+          "Escalation factor (%)",
+          "O&M cost allowable for 2024-25 (Rs. lakh/MW)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "SHPs having capacity below 5MW",
+            "32.41",
+            "5.72%",
+            "42.80"
+          ],
+          [
+            "2",
+            "SHPs having capacity above 5MW to 25MW",
+            "23.47",
+            null,
+            "31.00"
+          ],
+          [
+            "4",
+            "Solar PV plants",
+            "6.00",
+            null,
+            "7.92"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.9",
+        "title": "O&M cost allowable for the generation projects commissioned after 2018-19",
+        "pages": [
+          29,
+          30
+        ],
+        "header": [
+          "Sl.No",
+          "Projects",
+          "COD",
+          "Capacity (MW)",
+          "Project Type",
+          "Norms of O&M cost for the year FY 2024-25 in lakhs",
+          "Addl O&M cost (Rs. Cr)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "I.",
+            "Hydel Stations",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "1",
+            "Chathankottunada",
+            "20-06-2021",
+            "6",
+            "Above 5MW",
+            "31",
+            "1.86"
+          ],
+          [
+            "2",
+            "Upper Kallar",
+            "30-09-2021",
+            "2",
+            "Below 5MW",
+            "42.8",
+            "0.86"
+          ],
+          [
+            "3",
+            "Poringalkuthu",
+            "7-06.2022",
+            "24",
+            "Above 5MW",
+            "31",
+            "7.44"
+          ],
+          [
+            "4",
+            "Peruvannamoozhy",
+            "19.07.2023",
+            "6",
+            "Above 5MW",
+            "31",
+            "1.86"
+          ],
+          [
+            "5",
+            "Thottiar",
+            "28.10.2024",
+            "40",
+            "",
+            "23.25",
+            "3.88"
+          ],
+          [
+            "6",
+            "Pallivasal Extention",
+            "Dec-24",
+            "60",
+            "",
+            "23.25",
+            "3.49"
+          ],
+          [
+            "",
+            "Sub total",
+            "",
+            "38",
+            "",
+            "",
+            "19.38"
+          ],
+          [
+            "II",
+            "Solar projects",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "1",
+            "2019-20",
+            "",
+            "1.17",
+            "",
+            "7.92",
+            "0.09"
+          ],
+          [
+            "2",
+            "2020-21",
+            "",
+            "0",
+            null,
+            "7.92",
+            "0.00"
+          ],
+          [
+            "3",
+            "2021-22",
+            "",
+            "13.86",
+            null,
+            "7.92",
+            "1.10"
+          ],
+          [
+            "4",
+            "2022-23",
+            "",
+            "17.26",
+            null,
+            "7.92",
+            "1.37"
+          ],
+          [
+            "5",
+            "2023-24",
+            "",
+            "2.06",
+            null,
+            "7.92",
+            "0.16"
+          ],
+          [
+            "6",
+            "2024-25",
+            "",
+            "",
+            null,
+            "",
+            ""
+          ],
+          [
+            "",
+            "110kV s/s Cherpplessery",
+            "10.02.2025",
+            "0.450",
+            null,
+            "7.92",
+            "0.30"
+          ],
+          [
+            "",
+            "Nenmmara",
+            "21.02.2025",
+            "1.500",
+            null,
+            "7.92",
+            "0.99"
+          ],
+          [
+            "",
+            "Subtotal",
+            "",
+            "2.200",
+            null,
+            "",
+            "2.28"
+          ],
+          [
+            "6",
+            "Sub total",
+            "",
+            "36.550",
+            null,
+            "7.5",
+            "5.00"
+          ],
+          [
+            "7",
+            "Grand total",
+            "",
+            "",
+            "",
+            "",
+            "24.38"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.10",
+        "title": "O&M cost approved for the year 2024-25",
+        "pages": [
+          30
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "O&M Cost approved for 2024-25"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "O&M cost allowable exiting stations upto the Year 2018-19",
+            "178.14"
+          ],
+          [
+            "2",
+            "O&M cost of new stations commissioned after 2018-19",
+            "24.38"
+          ],
+          [
+            "",
+            "Total",
+            "202.52"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.11",
+        "title": "O&M cost of SBU-G claimed and approved for the Year 2024-25",
+        "pages": [
+          30
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "",
+          "ARR&ERC Order dated 25.06.2022",
+          "",
+          "Actual",
+          "",
+          "Truing Up petition",
+          "",
+          "",
+          "KSERC Approval",
+          ""
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          null,
+          null,
+          "(Rs. Cr)",
+          null,
+          null
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Employee Cost",
+            "221.62",
+            null,
+            null,
+            "234.56",
+            "208.22",
+            null,
+            null,
+            "202.52",
+            null,
+            null
+          ],
+          [
+            "2",
+            "A&G Expenses",
+            null,
+            null,
+            null,
+            "244.31",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "3",
+            "R&M Expenses",
+            null,
+            null,
+            null,
+            "15.10",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "4",
+            "Total",
+            null,
+            null,
+            null,
+            "493.97",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.12",
+        "title": "Interest and financing charges claimed in the petition for 2024-25",
+        "pages": [
+          31
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "MYT Order dated 25.06.2022",
+          "As per audited accounts",
+          "Truing up petition"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Interest on Capital Liabilities",
+            "140.26",
+            "111.74",
+            "149.15"
+          ],
+          [
+            "2",
+            "Interest on GPF",
+            "13.07",
+            "8.88",
+            "8.88"
+          ],
+          [
+            "3",
+            "Interest on Working capital",
+            "7.45",
+            "7.64",
+            "11.93"
+          ],
+          [
+            "4",
+            "Interest on Master Trust Bonds",
+            "28.59",
+            "25.81",
+            "25.81"
+          ],
+          [
+            "5",
+            "Other Interests",
+            "0",
+            "0.52",
+            "0.38"
+          ],
+          [
+            "6",
+            "Sub Total",
+            "189.37",
+            "154.59",
+            "196.15"
+          ],
+          [
+            "7",
+            "Less: Capitalized",
+            "0",
+            "39.07",
+            "0"
+          ],
+          [
+            "8",
+            "Balance",
+            "189.37",
+            "115.52",
+            "196.15"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.13",
+        "title": "KSEBL- Interest on working capital claimed for SBU-G for the Year 2024-25",
+        "pages": [
+          31,
+          32
+        ],
+        "header": [
+          "Sl. No",
+          "Particulars",
+          "Amount (Rs.Cr)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "Cost of fuel for FY 2024-25",
+            "5 .17"
+          ],
+          [
+            "2",
+            "Cost of fuel for one month",
+            "0.43"
+          ],
+          [
+            "",
+            "O&M expenses",
+            ""
+          ],
+          [
+            "i",
+            "As per norms",
+            "178.15"
+          ],
+          [
+            "ii",
+            "O&M Expenses for new stations",
+            "30.07"
+          ],
+          [
+            "iii",
+            "Pay revision expenses",
+            "0.00"
+          ],
+          [
+            "iv",
+            "Repayment of master Trust Bond",
+            "21.99"
+          ],
+          [
+            "v",
+            "Additional contribution to Master Trust",
+            "21.60"
+          ],
+          [
+            "3",
+            "Total (i to v)",
+            "251.81"
+          ],
+          [
+            "4",
+            "O&M Expenses for one month",
+            "20.98"
+          ],
+          [
+            "5",
+            "Approved GFA - Plants and Equipment for FY 2024-25",
+            "8561.20"
+          ],
+          [
+            "6",
+            "Cost of maintenance of spares at 1% of historical cost",
+            "85.61"
+          ],
+          [
+            "7",
+            "Total requirement of working Capital=(2)+(4)+(6)",
+            "107.03"
+          ],
+          [
+            "8",
+            "Base rate as on 01-04-2024 (%)",
+            "9.15"
+          ],
+          [
+            "9",
+            "Interest rate on working capital (%)=Base rate+2",
+            "11.15"
+          ],
+          [
+            "10",
+            "Interest on working capital = (7)*(9)",
+            "11.93"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.14",
+        "title": "Interest on working capital approved for SBU-G for the year 2024-25",
+        "pages": [
+          34
+        ],
+        "header": [
+          "Sl No",
+          "Particulars",
+          "Amount (Rs. Cr)"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "1",
+            "O&M expenses of SBU-G for the year 2024-25",
+            "202.52"
+          ],
+          [
+            "2",
+            "O&M expenses of SBU-G for one month = (1)/12",
+            "16.88"
+          ],
+          [
+            "3",
+            "Gross Fixed Asset of SBU-G as on 01.04.2024 (excluding land)",
+            "5846.62"
+          ],
+          [
+            "4",
+            "Cost of maintenance of spares (1% of the historical cost)",
+            "58.47"
+          ],
+          [
+            "5",
+            "Total working capital eligible as per Regulation = (2)+(4)",
+            "75.35"
+          ],
+          [
+            "6",
+            "Base rate as on 01.04.2024",
+            "9.15%"
+          ],
+          [
+            "7",
+            "Interest rate on working capital = Base rate+2%",
+            "11.15%"
+          ],
+          [
+            "8",
+            "Interest on working capital = (5)x (7)",
+            "8.40"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.15",
+        "title": "Summary of the interest and finance charges of SBU-G for the year 2024-25",
+        "pages": [
+          35
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "MYT Order dated 25.06.2022",
+          "As per audited accounts",
+          "Truing up petition",
+          "KSERC Approval"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Interest on Capital Liabilities",
+            "140.26",
+            "111.74",
+            "149.15",
+            "101.03"
+          ],
+          [
+            "2",
+            "Interest on GPF",
+            "13.07",
+            "8.88",
+            "8.88",
+            "8.88"
+          ],
+          [
+            "3",
+            "Interest on Working capital",
+            "7.45",
+            "7.64",
+            "11.93",
+            "8.40"
+          ],
+          [
+            "4",
+            "Interest on Master Trust Bonds",
+            "28.59",
+            "25.81",
+            "25.81",
+            "25.81"
+          ],
+          [
+            "5",
+            "Other Interests",
+            "0",
+            "0.52",
+            "0.38",
+            "0.38"
+          ],
+          [
+            "6",
+            "Sub Total",
+            "189.37",
+            "154.59",
+            "196.15",
+            "144.50"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": "2.16",
+        "title": "Approved Transfer Cost of SBU-G for 2024-25 (Rs. Cr)",
+        "pages": [
+          36
+        ],
+        "header": [
+          "No",
+          "Particulars",
+          "MYT Order dated 25.06.2022",
+          "Actuals",
+          "Truing Up petition",
+          "KSERC Approval"
+        ],
+        "unit_row": [
+          null,
+          null,
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)",
+          "(Rs. Cr)"
+        ],
+        "data_rows": [
+          [
+            "1",
+            "Cost of Generation of Power",
+            "0.00",
+            "5.17",
+            "5.17",
+            "5.17"
+          ],
+          [
+            "2",
+            "O&M cost",
+            "221.63",
+            "493.97",
+            "208.22",
+            "202.52"
+          ],
+          [
+            "3",
+            "Interest & Finance Charges",
+            "189.37",
+            "115.53",
+            "196.15",
+            "144.50"
+          ],
+          [
+            "4",
+            "Depreciation",
+            "175.00",
+            "772.04",
+            "182.74",
+            "161.26"
+          ],
+          [
+            "5",
+            "Repayment of master Trust Bond",
+            "21.99",
+            "0.00",
+            "21.99",
+            "21.99"
+          ],
+          [
+            "6",
+            "Additional contribution to Master Trust",
+            "21.60",
+            "0.00",
+            "21.60",
+            "21.60"
+          ],
+          [
+            "7",
+            "Amortisation of intangible assets",
+            "0.00",
+            "1.32",
+            "1.32",
+            "0.00"
+          ],
+          [
+            "8",
+            "RoE",
+            "116.38",
+            "116.38",
+            "116.38",
+            "116.38"
+          ],
+          [
+            "9",
+            "Exceptional Items",
+            "0.00",
+            "0.09",
+            "0.09",
+            "0.09"
+          ],
+          [
+            "10",
+            "Others",
+            "0.00",
+            "14.10",
+            "0.00",
+            "0.00"
+          ],
+          [
+            "11",
+            "ARR",
+            "745.97",
+            "1518.60",
+            "753.66",
+            "673.51"
+          ],
+          [
+            "12",
+            "Less Non-Tariff Income",
+            "11.35",
+            "9.24",
+            "39.61",
+            "211.87"
+          ],
+          [
+            "13",
+            "Net ARR (Transferred to SBU-D)",
+            "734.62",
+            "1509.36",
+            "714.05",
+            "461.64"
+          ]
+        ],
+        "needs_review": false
+      }
+    ],
+    "reference_tables": [
+      {
+        "table_no": "V3",
+        "title": "below:",
+        "pages": [
+          24
+        ],
+        "header": [
+          "Type of station",
+          "Station Capacity upto 200MW",
+          "Station Capacity above 200MW"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "Surface hydro-electric generating stations",
+            null,
+            null
+          ],
+          [
+            "Rotating Excitation",
+            "0.70%",
+            "0.70%"
+          ],
+          [
+            "Static Excitation",
+            "1.20%",
+            "1.00%"
+          ],
+          [
+            "Underground hydro-electric generating stations",
+            null,
+            null
+          ],
+          [
+            "Rotating Excitation",
+            "0.90%",
+            "0.90%"
+          ],
+          [
+            "Static Excitation",
+            "1.30%",
+            "1.20%"
+          ]
+        ],
+        "needs_review": false
+      }
+    ],
+    "unclassified_fragments": [
+      {
+        "table_no": null,
+        "title": null,
+        "pages": [
+          27
+        ],
+        "header": [
+          "Truing"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "Up"
+          ],
+          [
+            "petition"
+          ]
+        ],
+        "needs_review": false
+      },
+      {
+        "table_no": null,
+        "title": null,
+        "pages": [
+          27
+        ],
+        "header": [
+          "Difference"
+        ],
+        "unit_row": null,
+        "data_rows": [
+          [
+            "over"
+          ],
+          [
+            "approval"
+          ]
+        ],
+        "needs_review": false
+      }
+    ],
+    "chapter_heading": "CHAPTER-2 TRUING UP OF ACCOUNTS OF STRATEGIC BUSINESS UNIT GENERATION (SBU-G) Introduction",
+    "pages": [
+      22,
+      37
+    ]
+  }
+}

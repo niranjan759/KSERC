@@ -1,0 +1,453 @@
+{
+  "target_year": "2024-25",
+  "fields": [
+    {
+      "field_label": "Cost of Generation of Power",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": null,
+      "petition_claimed": "5.17",
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is 0.00",
+      "needs_review": false,
+      "arr_pages": [],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "O&M Expenses for existing stations",
+      "schema_table_no": "2.2",
+      "unit": "Rs.Cr",
+      "arr_approved": "177.97",
+      "petition_claimed": "178.15",
+      "deviation_abs": 0.18,
+      "deviation_pct": 0.1,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        123
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "O&M Expenses for new stations",
+      "schema_table_no": "2.2",
+      "unit": "Rs.Cr",
+      "arr_approved": "43.66",
+      "petition_claimed": "30.07",
+      "deviation_abs": -13.59,
+      "deviation_pct": -31.13,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        123
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "O&M Expenses - Total",
+      "schema_table_no": "2.2",
+      "unit": "Rs.Cr",
+      "arr_approved": "221.63",
+      "petition_claimed": "208.22",
+      "deviation_abs": -13.41,
+      "deviation_pct": -6.05,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        123
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Interest & Finance Charges",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": "189.37",
+      "petition_claimed": "196.15",
+      "deviation_abs": 6.78,
+      "deviation_pct": 3.58,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        150
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Depreciation",
+      "schema_table_no": "2.2",
+      "unit": "Rs.Cr",
+      "arr_approved": "175.00",
+      "petition_claimed": "182.74",
+      "deviation_abs": 7.74,
+      "deviation_pct": 4.42,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        131
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Repayment of master Trust Bond",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": "21.99",
+      "petition_claimed": "21.99",
+      "deviation_abs": 0.0,
+      "deviation_pct": 0.0,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        159
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Additional contribution to Master Trust",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": "21.6",
+      "petition_claimed": "21.6",
+      "deviation_abs": 0.0,
+      "deviation_pct": 0.0,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        159
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Amortisation of intangible assets",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": null,
+      "petition_claimed": "1.32",
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is 0.00",
+      "needs_review": false,
+      "arr_pages": [],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "RoE",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": "116.38",
+      "petition_claimed": "116.38",
+      "deviation_abs": 0.0,
+      "deviation_pct": 0.0,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        159
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Exceptional Items",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": null,
+      "petition_claimed": "0.09",
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is blank/0",
+      "needs_review": false,
+      "arr_pages": [],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Others",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": null,
+      "petition_claimed": "0",
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is blank/0",
+      "needs_review": false,
+      "arr_pages": [],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "ARR",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": "745.97",
+      "petition_claimed": "753.66",
+      "deviation_abs": 7.69,
+      "deviation_pct": 1.03,
+      "note": null,
+      "needs_review": true,
+      "arr_pages": [
+        159
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Less Non-Tariff Income",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": "11.35",
+      "petition_claimed": "39.61",
+      "deviation_abs": 28.26,
+      "deviation_pct": 248.99,
+      "note": null,
+      "needs_review": true,
+      "arr_pages": [
+        160
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Net ARR (Transferred to SBU-D)",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "arr_approved": "734.62",
+      "petition_claimed": "714.05",
+      "deviation_abs": -20.57,
+      "deviation_pct": -2.8,
+      "note": null,
+      "needs_review": true,
+      "arr_pages": [
+        160
+      ],
+      "petition_pages": [
+        16
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Employee Cost",
+      "schema_table_no": "2.7",
+      "unit": "% / Rs. Cr",
+      "arr_approved": "170.72",
+      "petition_claimed": null,
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        124
+      ],
+      "petition_pages": [],
+      "reviewed": false
+    },
+    {
+      "field_label": "A&G Expenses",
+      "schema_table_no": "2.7",
+      "unit": "% / Rs. Cr",
+      "arr_approved": "9.57",
+      "petition_claimed": null,
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        124
+      ],
+      "petition_pages": [],
+      "reviewed": false
+    },
+    {
+      "field_label": "R&M Expenses",
+      "schema_table_no": "2.7",
+      "unit": "% / Rs. Cr",
+      "arr_approved": "41.33",
+      "petition_claimed": null,
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        124
+      ],
+      "petition_pages": [],
+      "reviewed": false
+    },
+    {
+      "field_label": "Interest on Capital Liabilities",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": "140.26",
+      "petition_claimed": "149.15",
+      "deviation_abs": 8.89,
+      "deviation_pct": 6.34,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        150
+      ],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Interest on GPF",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": "13.07",
+      "petition_claimed": "8.88",
+      "deviation_abs": -4.19,
+      "deviation_pct": -32.06,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        150
+      ],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Interest on Working capital",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": "7.45",
+      "petition_claimed": "11.93",
+      "deviation_abs": 4.48,
+      "deviation_pct": 60.13,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        150
+      ],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Interest on Master Trust Bonds",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": "28.59",
+      "petition_claimed": "25.81",
+      "deviation_abs": -2.78,
+      "deviation_pct": -9.72,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        150
+      ],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Other Interests",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": null,
+      "petition_claimed": "0.38",
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is 0.00",
+      "needs_review": false,
+      "arr_pages": [],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Sub Total",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": "189.37",
+      "petition_claimed": "196.15",
+      "deviation_abs": 6.78,
+      "deviation_pct": 3.58,
+      "note": null,
+      "needs_review": false,
+      "arr_pages": [
+        150
+      ],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Less: Capitalized",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": null,
+      "petition_claimed": "0.00",
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": "not budgeted as a separate ARR line; the Truing Up Order's own MYT-approved value is 0.00",
+      "needs_review": false,
+      "arr_pages": [],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    },
+    {
+      "field_label": "Balance",
+      "schema_table_no": "2.12",
+      "unit": "Rs. Cr",
+      "arr_approved": null,
+      "petition_claimed": "196.15",
+      "deviation_abs": null,
+      "deviation_pct": null,
+      "note": "equals Sub Total less Capitalized - not a separate ARR-budgeted line",
+      "needs_review": false,
+      "arr_pages": [],
+      "petition_pages": [
+        18
+      ],
+      "reviewed": false
+    }
+  ]
+}

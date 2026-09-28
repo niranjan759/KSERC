@@ -1,0 +1,139 @@
+{
+  "fields": [
+    {
+      "field_label": "Cost of Generation of Power",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "0",
+      "actuals": "5.17",
+      "claimed_value": "5.17"
+    },
+    {
+      "field_label": "O&M Expenses for existing stations",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "177.97",
+      "actuals": "493.97",
+      "claimed_value": "178.15"
+    },
+    {
+      "field_label": "O&M Expenses for new stations",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "43.66",
+      "actuals": null,
+      "claimed_value": "30.07"
+    },
+    {
+      "field_label": "O&M Expenses - Total",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "221.63",
+      "actuals": null,
+      "claimed_value": "208.22"
+    },
+    {
+      "field_label": "Interest & Finance Charges",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "189.37",
+      "actuals": "115.53",
+      "claimed_value": "196.15"
+    },
+    {
+      "field_label": "Depreciation",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "175",
+      "actuals": "772.04",
+      "claimed_value": "182.74"
+    },
+    {
+      "field_label": "Repayment of master Trust Bond",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "21.99",
+      "actuals": "0",
+      "claimed_value": "21.99"
+    },
+    {
+      "field_label": "Additional contribution to Master Trust",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "21.6",
+      "actuals": "0",
+      "claimed_value": "21.6"
+    },
+    {
+      "field_label": "Amortisation of intangible assets",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "0",
+      "actuals": "1.32",
+      "claimed_value": "1.32"
+    },
+    {
+      "field_label": "RoE",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "116.38",
+      "actuals": "116.38",
+      "claimed_value": "116.38"
+    },
+    {
+      "field_label": "Exceptional Items",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "",
+      "actuals": "0.09",
+      "claimed_value": "0.09"
+    },
+    {
+      "field_label": "Others",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "",
+      "actuals": "14.10",
+      "claimed_value": "0"
+    },
+    {
+      "field_label": "ARR",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "745.97",
+      "actuals": "1518.60",
+      "claimed_value": "753.66"
+    },
+    {
+      "field_label": "Less Non-Tariff Income",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "11.35",
+      "actuals": "9.24",
+      "claimed_value": "39.61"
+    },
+    {
+      "field_label": "Net ARR (Transferred to SBU-D)",
+      "schema_table_no": "2.2",
+      "unit": "Rs. Cr",
+      "petition_table_no": "G8",
+      "arr_approval": "734.62",
+      "actuals": "1509.36",
+      "claimed_value": "714.05"
+    }
+  ]
+}

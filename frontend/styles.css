@@ -186,6 +186,7 @@ main {
 
 .flag.review { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
 .flag.reviewed { background: var(--ok-bg); color: var(--ok-text); }
+.flag.info { background: var(--ref-bg); color: var(--muted); }
 
 .table-card-actions { display: flex; gap: 8px; align-items: center; }
 
@@ -434,3 +435,39 @@ table.compare-grid tr.reviewed-row { background: var(--ok-bg); }
 }
 
 .compare-banner b { color: var(--text); }
+
+.compare-banner .delete-comparison { float: right; margin-left: 12px; }
+
+.notice {
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.notice ul { margin: 6px 0; padding-left: 20px; }
+.notice.error { background: #fef3f2; border: 1px solid #fda29b; color: #912018; }
+.notice.warn { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); }
+
+.comparison-item .meta.invalid { color: #b42318; font-weight: 600; }
+
+.doc-item .meta.doc-type { font-weight: 600; }
+.doc-item .meta.doc-type.unknown { color: #b42318; }
+
+.doc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sbu-tabs .tab:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.doc-item.processing { opacity: 0.75; cursor: default; }
+.doc-item.failed { cursor: default; }
+.doc-item .meta.invalid { color: #b42318; font-weight: 600; }
+button.small { padding: 3px 9px; font-size: 11.5px; margin-top: 6px; }
+
+.slot-missing { font-size: 12.5px; color: #b42318; padding: 6px 0; }
+.form-error { color: #b42318; font-size: 12.5px; margin-top: 10px; }

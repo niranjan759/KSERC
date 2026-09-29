@@ -6,6 +6,7 @@ import pdfplumber
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from arr_budget import label_key
 from schema_discovery import find_label, table_unit
 
 # Petition tables whose field labels match the Truing Up Order's own
@@ -41,6 +42,7 @@ PETITION_TABLES = [
         "actuals_pat": r'Actual',
         "claimed_pat": r'TU\s*Sought',
         "recover": True,
+        "report_new_lines": True,
     },
     {
         # "Interest and Finance charges (Rs Cr)" - confirmed identical row
@@ -54,6 +56,29 @@ PETITION_TABLES = [
         "actuals_pat": r'Actual',
         "claimed_pat": r'^TU$',
         "recover": False,
+    },
+    {
+        # "Details of O&M expenses for <year> (Rs Cr)" - the O&M
+        # Employee/A&G/R&M split. Its "TU requirement" column is BLANK for
+        # all three components in both petition years (confirmed against
+        # the raw PDF text, not an extraction loss): KSEB claims O&M on a
+        # normative basis as a single total, so there is no per-component
+        # claim to compare. Wired in anyway so these rows link to their
+        # source page and say so explicitly, instead of showing an
+        # unexplained blank. Its "Total" row is excluded via only_labels -
+        # it duplicates "O&M Expenses - Total", already compared from G8.
+        "title_pattern": r'Details of O&M expenses',
+        "tuo_title_pattern": r'O&M (expenses|cost) of SBU-G claimed',
+        "approval_pat": r'Approved',
+        "actuals_pat": r'Actual',
+        # word boundaries matter: a bare case-insensitive r'TU' matches
+        # inside "AcTUal" (the column before it) and silently reads the
+        # Actuals figure as the claim - confirmed, it produced a +2452%
+        # "deviation" on A&G Expenses before this was fixed.
+        "claimed_pat": r'\bTU\b',
+        "recover": False,
+        "only_labels": ["Employee Cost", "A&G Expenses", "R&M Expenses"],
+        "blank_claim_note": "No separate claim in the petition - O&M is claimed only as a total (see O&M Expenses - Total)",
     },
 ]
 
@@ -156,11 +181,51 @@ def table_offset(header, row_label_idx):
     return header_label_idx - row_label_idx
 
 
-def find_column_value(header, row, column_pattern, offset=0):
+def _shifted_index(header, table_rows, idx):
+    """Where a named column's values actually sit. In Petition 2024-25
+    Table T6 every "Truing up requirement" value lands one column LEFT of
+    that header, under a blank-header column, while the named column itself
+    is empty in every single row. Judged across the whole table, never per
+    row: a column that's empty for just some rows is ordinary (Table G13's
+    claim column is blank for its components but filled on its Total row),
+    and treating that as a shift would read the neighbouring "Actual"
+    figures as the claim."""
+    # idx can run off the header: a wrapped remark ("See Form" / "D 3.4")
+    # read as a row label gives that row a large negative offset
+    if not 1 <= idx <= len(header) or header[idx - 1] not in (None, ""):
+        return idx
+    own = [r[idx] for r in table_rows if idx < len(r)]
+    left = [r[idx - 1] for r in table_rows if idx - 1 < len(r)]
+    if own and all(v in (None, "") for v in own) and sum(v not in (None, "") for v in left) >= len(left) / 2:
+        return idx - 1
+    return idx
+
+
+def _row_shifted_index(header, row, idx):
+    """One row whose values sit a column left of everyone else's. In the
+    petitions' SBU-D summary (D76 / D89) the two-line "Sharing of gains on
+    account of higher T&D loss reduction" row puts each value under the
+    blank-header column to the left, and has NO cell at all (None, not an
+    empty string) where the named column is. Only that exact shape counts:
+    a real but empty cell ("") is an ordinary blank value, and a named
+    column to the left is a different figure, never a shifted one."""
+    if 1 <= idx < len(row) and idx <= len(header) and row[idx] is None and header[idx - 1] in (None, "") \
+            and NUM_TOKEN_PAT.match(str(row[idx - 1] or "").strip()):
+        return idx - 1
+    return idx
+
+
+def find_column_value(header, row, column_pattern, offset=0, table_rows=None):
     row = _realign_row(header, row)
     for i, h in enumerate(header):
         if h and re.search(column_pattern, h, re.I):
             idx = i - offset
+            # after the offset correction, not before: a table with a
+            # whole-table offset (finding #14, Petition 2023-24 G10) would
+            # otherwise be corrected twice and read an empty column
+            if table_rows is not None:
+                idx = _shifted_index(header, table_rows, idx)
+            idx = _row_shifted_index(header, row, idx)
             return row[idx] if 0 <= idx < len(row) else None
     return None
 
@@ -243,7 +308,115 @@ def recover_g8_tail(pdf_path, table, found_labels):
     return recovered
 
 
-def extract_petition_summary_rows(petition_order_tables, pdf_path=None):
+PETITION_TABLES_T = [
+    {
+        # "ARR OF TRANSMISSION BUSINESS UNIT (SBU-T) & SLDC for <year>" -
+        # Table T8 (2023-24) / T6 (2024-25). Row labels match the orders'
+        # Table 3.3 apart from the aliases in PETITION_ALIASES_BY_SBU["T"].
+        "title_pattern": r'ARR OF TRANSMISSION BUSINESS UNIT',
+        "tuo_title_pattern": r'Expenses of SBU-T as per the True up petition|Approved Transfer Cost of SBU-T',
+        "approval_pat": r'^Approved$',
+        "actuals_pat": r'^Actual$',
+        "claimed_pat": r'Truing up requirement',
+        "recover": False,
+        "report_new_lines": True,
+    },
+    {
+        # "Summary of Interest and Finance charges (Rs Cr)" - Table T12 / T10
+        "title_pattern": r'Summary of Interest and Finance charges',
+        "tuo_title_pattern": r'Summary of the interest and finance charges of SBU-T',
+        "approval_pat": r'^Approved$',
+        "actuals_pat": r'Accounts',
+        "claimed_pat": r'True-up requirement',
+        "recover": False,
+    },
+]
+
+_TUO_D_SUMMARY = (r'ARR, ERC and Revenue gap of SBU-D|Aggregate Revenue Requirement for the purpose of Truing up of SBU-D'
+                  r'|Revenue gap approved for SBU-D')
+
+PETITION_TABLES_D = [
+    {
+        # "ARR & ERC OF DISTRIBUTION BUSINESS UNIT (Rs Cr)" - Table D76
+        # (2023-24) / D89 (2024-25), the orders' Table 5.1 reprinted
+        "title_pattern": r'ARR & ERC OF DISTRIBUTION BUSINESS UNIT',
+        "tuo_title_pattern": _TUO_D_SUMMARY,
+        "approval_pat": r'^Approved$',
+        "actuals_pat": r'^Actuals?$',
+        "claimed_pat": r'^True up$',
+        "recover": False,
+        "report_new_lines": True,
+    },
+    {
+        # "Components of O&M Expenses for SBU D (Rs Cr)" - Table D75
+        # (2024-25). The 2023-24 petition's D63 of the same title gives only
+        # the O&M total, so its components come back blank.
+        "title_pattern": r'Components of O&M Expenses for SBU D',
+        "tuo_title_pattern": r'Summary of the expenses claimed by KSEB Ltd',
+        "approval_pat": r'^Approved$',
+        "actuals_pat": r'As per accounts',
+        "claimed_pat": r'True up claim',
+        "recover": False,
+    },
+    {
+        # "Comparison of I&FC for <year> (Rs. Cr)" - Table D65 / D77. Not the
+        # 2023-24 petition's D71, which splits the carrying cost in two.
+        "title_pattern": r'Comparison of I\s*&\s*FC for',
+        "tuo_title_pattern": r'Summary of the interest and finance charges of SBU-D|KSEB petition- Interest and financing charges claimed',
+        "approval_pat": r'^Approved$',
+        "actuals_pat": r'Accounts',
+        "claimed_pat": r'True up claim',
+        "recover": False,
+    },
+]
+
+PETITION_TABLES_BY_SBU = {"G": PETITION_TABLES, "T": PETITION_TABLES_T, "D": PETITION_TABLES_D}
+
+# Labels that name the same item in different documents / years. Unlike
+# SBU-G, SBU-T's petition and order wording diverge in a few places, and
+# some labels are cut short in the source tables. Each group was checked
+# against the figures, not assumed from the wording.
+PETITION_ALIASES_BY_SBU = {
+    "T": [
+        ["Repayment of existing master trust", "Repayment of existing master trust bond",
+         "Repayment of bond to master trust"],
+        ["Net ARR (Cost Transferred to SBU-D)", "Net ARR (Cost Transferred to SBU-",
+         "Net ARR (Cost Transferred to"],
+        ["Interest on Outstanding Capital", "Interest on Outstanding Capital Liabilities"],
+        ["Refund of liquidated damages", "Refunded liquidated damages"],
+    ],
+    "D": [
+        ["Cost of Power Purchase incl RLDC", "Cost of Power Purchase incl RLDC charges"],
+        ["Sharing of gains due to T&D loss", "Sharing of gains due to T&D loss reduction",
+         "Sharing of gains on account of higher T&D loss",
+         "Sharing of gains on account of higher T&D loss reduction"],
+        ["Non-Tariff Income", "Less Non Tariff Income"],
+        # the 2024-25 order's name for the same line
+        ["Interest on outstanding Loans", "Interest on Term Loans"],
+    ],
+}
+
+# Items the petition deliberately doesn't claim separately. SBU-T's O&M is
+# claimed only as a normative total: the Truing Up Order's own "As per
+# True-up petition" column for Employee / A&G / R&M literally reads "(Total
+# O&M expenses as per norms)", and the petition has no component table.
+NO_SEPARATE_CLAIM_BY_SBU = {
+    "T": [{
+        "tuo_title_pattern": r'Total O&M expenses of SBU-T',
+        "labels": ["Employee expenses", "A&G Expenses", "R&M Expenses"],
+        "note": "No separate claim in the petition - O&M is claimed only as a normative total (see O&M expenses)",
+    }],
+    # SBU-D's petition summary stops at Total ARR and lists Non-Tariff
+    # Income among the revenue lines; it never states a Net ARR.
+    "D": [{
+        "tuo_title_pattern": _TUO_D_SUMMARY,
+        "labels": ["Net ARR"],
+        "note": "No separate claim in the petition - it states Total ARR and Non-Tariff Income, not their difference",
+    }],
+}
+
+
+def extract_petition_summary_rows(petition_order_tables, pdf_path=None, sbu="G"):
     """All rows of every petition table in PETITION_TABLES, each with its
     approval / actuals / claimed values (column names vary per table - see
     PETITION_TABLES). When `pdf_path` is given, also attempts
@@ -251,24 +424,30 @@ def extract_petition_summary_rows(petition_order_tables, pdf_path=None):
     rows_out = []
     for t in petition_order_tables:
         title = t.get("title") or ""
-        config = next((c for c in PETITION_TABLES if re.search(c["title_pattern"], title, re.I)), None)
+        config = next((c for c in PETITION_TABLES_BY_SBU[sbu] if re.search(c["title_pattern"], title, re.I)), None)
         if config is None:
             continue
         header = t.get("header") or []
         unit = table_unit(t)
+        only = {_normalize(l) for l in config.get("only_labels", [])}
         table_rows = []
         for row in t.get("data_rows", []):
             label, label_idx, sl_no = find_label(row)
             if label is None:
                 continue
+            if only and _normalize(label) not in only:
+                continue
             offset = table_offset(header, label_idx)
+            data = t.get("data_rows", [])
+            claimed = find_column_value(header, row, config["claimed_pat"], offset, data)
             table_rows.append({
                 "field_label": label,
                 "unit": unit,
                 "table_no": t.get("table_no"),
-                "arr_approval": find_column_value(header, row, config["approval_pat"], offset),
-                "actuals": find_column_value(header, row, config["actuals_pat"], offset),
-                "tu_sought": find_column_value(header, row, config["claimed_pat"], offset),
+                "arr_approval": find_column_value(header, row, config["approval_pat"], offset, data),
+                "actuals": find_column_value(header, row, config["actuals_pat"], offset, data),
+                "tu_sought": claimed,
+                "claim_note": config.get("blank_claim_note") if claimed in (None, "") else None,
                 "pages": t.get("pages", []),
                 "needs_review": bool(t.get("needs_review")),
                 "recovered": False,
@@ -278,11 +457,12 @@ def extract_petition_summary_rows(petition_order_tables, pdf_path=None):
             table_rows.extend(recover_g8_tail(pdf_path, t, found))
         for r in table_rows:
             r["tuo_title_pattern"] = config["tuo_title_pattern"]
+            r["report_new_lines"] = bool(config.get("report_new_lines"))
         rows_out.extend(table_rows)
     return rows_out
 
 
-def match_schema_to_petition(schema_fields, petition_order_tables, pdf_path=None):
+def match_schema_to_petition(schema_fields, petition_order_tables, pdf_path=None, sbu="G"):
     """For each stage-1 schema field, find its petition-claimed figure
     from whichever table in PETITION_TABLES covers it. Only fields that
     legitimately appear in one of those tables get a match here - this
@@ -299,10 +479,16 @@ def match_schema_to_petition(schema_fields, petition_order_tables, pdf_path=None
     against Table G10's "Sub Total" (interest charges) purely on label
     text before this scoping was added, silently attaching the wrong
     claimed value to an unrelated field."""
-    petition_rows = extract_petition_summary_rows(petition_order_tables, pdf_path)
+    petition_rows = extract_petition_summary_rows(petition_order_tables, pdf_path, sbu)
     petition_by_label = {}
     for r in petition_rows:
-        petition_by_label.setdefault(_normalize(r["field_label"]), []).append(r)
+        petition_by_label.setdefault(label_key(r["field_label"]), []).append(r)
+
+    alias_of = {}
+    for group in PETITION_ALIASES_BY_SBU.get(sbu, []):
+        for name in group:
+            alias_of[label_key(name)] = [label_key(n) for n in group]
+    no_claims = NO_SEPARATE_CLAIM_BY_SBU.get(sbu, [])
 
     matched = []
     seen = set()
@@ -310,8 +496,21 @@ def match_schema_to_petition(schema_fields, petition_order_tables, pdf_path=None
         label = f["field_label"]
         if label in seen:
             continue
-        candidates = petition_by_label.get(_normalize(label), [])
+        names = alias_of.get(label_key(label), [label_key(label)])
+        candidates = [c for n in names for c in petition_by_label.get(n, [])]
         hit = next((c for c in candidates if re.search(c["tuo_title_pattern"], f["table_title"] or "", re.I)), None)
+        no_claim = next((nc for nc in no_claims
+                         if re.search(nc["tuo_title_pattern"], f["table_title"] or "", re.I)
+                         and label_key(label) in {label_key(l) for l in nc["labels"]}), None)
+        if hit is None and no_claim:
+            seen.add(label)
+            matched.append({
+                "field_label": label, "schema_table_no": f["table_no"], "unit": f["unit"],
+                "petition_table_no": None, "arr_approval": None, "actuals": None, "claimed_value": None,
+                "pages": [], "needs_review": False, "recovered": False, "claim_note": no_claim["note"],
+                "new_in_petition": bool(f.get("new_in_petition")),
+            })
+            continue
         if hit is None:
             continue
         seen.add(label)
@@ -326,8 +525,65 @@ def match_schema_to_petition(schema_fields, petition_order_tables, pdf_path=None
             "pages": hit["pages"],
             "needs_review": hit["needs_review"],
             "recovered": hit["recovered"],
+            "claim_note": hit.get("claim_note"),
+            "new_in_petition": bool(f.get("new_in_petition")),
         })
     return matched
+
+
+def new_petition_lines(schema_fields, petition_order_tables, sbu="G"):
+    """Claim lines in this year's petition that last year's Truing Up Order
+    has no row for. The schema is learned from last year's order, so a head
+    of expense that's new this year would otherwise never be compared -
+    e.g. the 2024-25 petition's SBU-D "Registration charges for solar
+    refunded" (24.18) and "Refund of liquidated damages" (16.30), neither
+    of which is in the 2023-24 order. Only the per-SBU summary tables
+    (PETITION_TABLES entries with `report_new_lines`) are checked: every
+    claim reaches the summary, and the detail tables carry too many
+    sub-rows and wrapped-label fragments to report usefully.
+
+    A line whose claimed amount is already matched to a schema field isn't
+    new: SBU-T's petition summary repeats the interest breakdown ("Interest
+    on loan" 409.93) that the order keeps in a separate interest table
+    under other names ("Interest on Outstanding Capital" 409.93).
+
+    Returns stand-in schema fields (flagged `new_in_petition`) filed under
+    the order's summary table, so the ARR map and the petition match treat
+    them like any other field."""
+    from compare import to_float
+
+    rows = [r for r in extract_petition_summary_rows(petition_order_tables, None, sbu) if r["report_new_lines"]]
+    alias_of = {}
+    for group in PETITION_ALIASES_BY_SBU.get(sbu, []):
+        for name in group:
+            alias_of[label_key(name)] = {label_key(n) for n in group}
+    already_claimed = {to_float(m["claimed_value"])
+                       for m in match_schema_to_petition(schema_fields, petition_order_tables, None, sbu)}
+
+    out = []
+    seen = set()
+    for r in rows:
+        claimed = to_float(r["tu_sought"])
+        # a wrapped label's second line ("reduction") has no value of its own
+        if claimed is None or (claimed != 0 and claimed in already_claimed):
+            continue
+        scope = [f for f in schema_fields if re.search(r["tuo_title_pattern"], f["table_title"] or "", re.I)]
+        if not scope:
+            continue
+        key = label_key(r["field_label"])
+        names = alias_of.get(key, {key})
+        if key in seen or any(label_key(f["field_label"]) in names for f in scope):
+            continue
+        seen.add(key)
+        out.append({
+            "table_no": None,
+            "table_title": scope[0]["table_title"],
+            "sl_no": None,
+            "field_label": r["field_label"],
+            "unit": r["unit"] or scope[0]["unit"],
+            "new_in_petition": True,
+        })
+    return out
 
 
 if __name__ == "__main__":

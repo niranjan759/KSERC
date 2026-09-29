@@ -14,31 +14,76 @@ let allDocsForForm = [];
 const comparisonItemsEl = document.getElementById("comparison-items");
 const compareContentEl = document.getElementById("compare-content");
 
+const SBU_NAMES = { G: "Generation", T: "Transmission", D: "Distribution" };
+let currentSbu = "G";
+let docPollTimer = null;
+let awaitingDocId = null;
+
 async function loadDocList(selectId) {
   const docs = await fetch(API).then(r => r.json());
   docItemsEl.innerHTML = "";
   if (docs.length === 0) {
     docItemsEl.innerHTML = '<div class="doc-item meta">No documents uploaded yet.</div>';
-    return;
   }
   docs.forEach(d => {
     const el = document.createElement("div");
-    el.className = "doc-item" + (d.doc_id === selectId ? " active" : "");
-    el.innerHTML = `
-      <div class="name">${escapeHtml(d.filename || d.doc_id)}</div>
-      <div class="meta">${d.order_table_count} tables · ${d.needs_review_count} flagged</div>
-    `;
-    el.onclick = () => selectDocument(d.doc_id);
+    el.className = "doc-item" + (d.doc_id === selectId ? " active" : "") + (d.state !== "ready" ? " " + d.state : "");
+    if (d.state === "processing") {
+      el.innerHTML = `
+        <div class="name">${escapeHtml(d.filename || d.doc_id)}</div>
+        <div class="meta">Processing… extracting all SBU chapters (large documents take a few minutes)</div>`;
+    } else if (d.state === "failed") {
+      el.innerHTML = `
+        <div class="name">${escapeHtml(d.filename || d.doc_id)}</div>
+        <div class="meta invalid">Upload refused: ${escapeHtml(d.error || "")}</div>
+        <button class="secondary small" onclick="event.stopPropagation(); deleteDocument('${d.doc_id}', true)">Dismiss</button>`;
+    } else {
+      el.innerHTML = `
+        <div class="name">${escapeHtml(d.filename || d.doc_id)}</div>
+        <div class="meta doc-type ${d.doc_type}">${escapeHtml(d.label)}</div>
+        <div class="meta">SBU ${d.sbus_available.join(", ")} · ${d.order_table_count} tables · ${d.needs_review_count} flagged</div>
+        ${d.updating ? '<div class="meta">Updating… re-extracting with the latest extraction fixes</div>' : ""}`;
+      el.onclick = () => selectDocument(d.doc_id);
+    }
     docItemsEl.appendChild(el);
   });
+
+  // keep refreshing while anything is still being extracted in the background
+  const processing = docs.some(d => d.state === "processing" || d.updating);
+  clearTimeout(docPollTimer);
+  if (processing) docPollTimer = setTimeout(() => loadDocList(currentDocId), 4000);
+  if (awaitingDocId) {
+    const d = docs.find(x => x.doc_id === awaitingDocId);
+    if (d && d.state === "ready") { awaitingDocId = null; selectDocument(d.doc_id); }
+    else if (d && d.state === "failed") { awaitingDocId = null; }
+  }
 }
 
 async function selectDocument(docId) {
   currentDocId = docId;
   const data = await fetch(`${API}/${docId}`).then(r => r.json());
   currentDoc = data;
+  const available = Object.keys(data.sbus || {}).filter(s => data.sbus[s] && !data.sbus[s].error);
+  if (!available.includes(currentSbu)) currentSbu = available[0] || "G";
   renderDocument();
   await loadDocList(docId);
+}
+
+async function deleteDocument(docId, isFailed) {
+  if (!isFailed && !confirm("Delete this document? Comparisons that use it will be marked as broken.")) return;
+  await fetch(`${API}/${docId}`, { method: "DELETE" });
+  if (docId === currentDocId) { currentDocId = null; currentDoc = null; renderDocument(); }
+  await loadDocList(currentDocId);
+}
+
+function switchSbu(sbu) {
+  currentSbu = sbu;
+  renderDocument();
+}
+
+function currentSection() {
+  const s = currentDoc && currentDoc.sbus ? currentDoc.sbus[currentSbu] : null;
+  return s && !s.error ? s : null;
 }
 
 function renderDocument() {
@@ -46,8 +91,23 @@ function renderDocument() {
     contentEl.innerHTML = '<div class="empty-state">Select a document.</div>';
     return;
   }
-  const d = currentDoc;
+  const tabs = ["G", "T", "D"].map(s => {
+    const sec = currentDoc.sbus && currentDoc.sbus[s];
+    const has = sec && !sec.error;
+    return `<button class="tab ${s === currentSbu ? "active" : ""}" ${has ? `onclick="switchSbu('${s}')"` : "disabled"}
+      title="${has ? "" : escapeHtml(sec ? sec.error : "Not extracted yet - older uploads are being updated in the background")}">SBU-${s} ${SBU_NAMES[s]}</button>`;
+  }).join("");
+  const d = currentSection();
   let html = `
+    <div class="doc-toolbar">
+      <nav class="tabs sbu-tabs">${tabs}</nav>
+      <button class="secondary" onclick="deleteDocument('${currentDocId}')">Delete document</button>
+    </div>`;
+  if (!d) {
+    contentEl.innerHTML = html + '<div class="empty-state">This document has no chapter for this SBU.</div>';
+    return;
+  }
+  html += `
     <div class="chapter-banner">
       <b>${escapeHtml(d.chapter_heading || "")}</b><br>
       Source pages ${d.pages ? d.pages[0] + "–" + d.pages[1] : "?"} &middot; ${d.order_tables.length} order tables
@@ -56,7 +116,7 @@ function renderDocument() {
     </div>
   `;
 
-  html += `<div class="section-heading">Order tables (SBU-G financial claims)</div>`;
+  html += `<div class="section-heading">Order tables (SBU-${currentSbu} ${SBU_NAMES[currentSbu]})</div>`;
   if (d.order_tables.length === 0) {
     html += `<div class="empty-state">No order tables found.</div>`;
   } else {
@@ -141,7 +201,7 @@ async function saveGrid(gridEl) {
     tr.querySelectorAll("td").forEach(td => row.push(td.textContent));
     rows.push(row);
   });
-  await fetch(`${API}/${currentDocId}/${bucket}/${index}`, {
+  await fetch(`${API}/${currentDocId}/${bucket}/${index}?sbu=${currentSbu}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ data_rows: rows })
@@ -149,13 +209,13 @@ async function saveGrid(gridEl) {
   // keep the in-memory model in sync so a later re-render (e.g. toggling
   // "reviewed" on another table) doesn't wipe this edit back to its
   // pre-edit value.
-  currentDoc[bucket][index].data_rows = rows;
+  currentSection()[bucket][index].data_rows = rows;
 }
 
 async function toggleReviewed(bucket, index) {
-  const t = currentDoc[bucket][index];
+  const t = currentSection()[bucket][index];
   const reviewed = !t.reviewed;
-  await fetch(`${API}/${currentDocId}/${bucket}/${index}`, {
+  await fetch(`${API}/${currentDocId}/${bucket}/${index}?sbu=${currentSbu}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reviewed })
@@ -165,7 +225,7 @@ async function toggleReviewed(bucket, index) {
 }
 
 function viewSourcePages(bucket, index) {
-  const t = currentDoc[bucket][index];
+  const t = currentSection()[bucket][index];
   const panel = document.getElementById("source-panel");
   const title = document.getElementById("source-panel-title");
   const body = document.getElementById("source-panel-body");
@@ -196,19 +256,23 @@ document.getElementById("upload-form").addEventListener("submit", async (e) => {
   if (!input.files.length) return;
   const btn = document.getElementById("upload-btn");
   btn.disabled = true;
-  btn.textContent = "Extracting...";
+  btn.textContent = "Uploading...";
   try {
     const formData = new FormData();
     formData.append("file", input.files[0]);
     const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      alert("Extraction failed: " + (err.detail || res.statusText));
+      alert("Upload failed: " + (err.detail || res.statusText));
       return;
     }
     const data = await res.json();
     input.value = "";
-    await selectDocument(data.doc_id);
+    // extraction continues in the background; the list polls until it's
+    // ready and then opens it
+    awaitingDocId = data.doc_id;
+    switchView("documents");
+    await loadDocList(currentDocId);
   } finally {
     btn.disabled = false;
     btn.textContent = "Upload & extract";
@@ -243,8 +307,10 @@ async function loadComparisonList(selectId) {
     const el = document.createElement("div");
     el.className = "comparison-item" + (c.comparison_id === selectId ? " active" : "");
     el.innerHTML = `
-      <div class="name">${escapeHtml(c.target_year)} — ${escapeHtml(c.petition_filename || c.comparison_id)}</div>
-      <div class="meta">${c.field_count} fields · ${c.flagged_count} flagged</div>
+      <div class="name">SBU-${escapeHtml(c.sbu)} · ${escapeHtml(c.target_year)} — ${escapeHtml(c.petition_filename || c.comparison_id)}</div>
+      ${c.has_errors
+        ? '<div class="meta invalid">Mismatched documents — results not meaningful</div>'
+        : `<div class="meta">${c.field_count} fields · ${c.flagged_count} flagged</div>`}
     `;
     el.onclick = () => selectComparison(c.comparison_id);
     comparisonItemsEl.appendChild(el);
@@ -265,28 +331,56 @@ document.getElementById("new-comparison-btn").addEventListener("click", async ()
   await loadComparisonList();
 });
 
+const FORM_SLOTS = [
+  { id: "cf-tuo", type: "truing_up_order", label: "Previous year's Truing Up Order (schema source)", missing: "No Truing Up Order uploaded yet." },
+  { id: "cf-arr", type: "arr", label: "ARR order (approved budget)", missing: "No ARR order uploaded yet." },
+  { id: "cf-petition", type: "petition", label: "This year's truing-up petition (claimed values)", missing: "No truing-up petition uploaded yet." },
+];
+
+function slotOptions(slot) {
+  // Only offer documents detected as the right type; unrecognised ones are
+  // still listed (detection can miss an unusual layout) but marked as such.
+  const matching = allDocsForForm.filter(d => d.doc_type === slot.type);
+  const unknown = allDocsForForm.filter(d => d.doc_type === "unknown");
+  return [...matching, ...unknown]
+    .map(d => `<option value="${d.doc_id}">${escapeHtml(d.filename || d.doc_id)} — ${escapeHtml(d.label)}</option>`)
+    .join("");
+}
+
 async function renderNewComparisonForm() {
-  allDocsForForm = await fetch(API).then(r => r.json());
-  const opts = allDocsForForm.map(d => `<option value="${d.doc_id}">${escapeHtml(d.filename || d.doc_id)}</option>`).join("");
-  compareContentEl.innerHTML = `
-    <div class="new-comparison-form">
-      <div class="section-heading" style="margin-top:0">New comparison</div>
-      <label>Truing Up Order (schema source)</label>
-      <select id="cf-tuo">${opts}</select>
-      <label>ARR (approved budget source)</label>
-      <select id="cf-arr">${opts}</select>
-      <label>Petition (claimed values source)</label>
-      <select id="cf-petition">${opts}</select>
-      <label>Target year</label>
+  allDocsForForm = (await fetch(API).then(r => r.json())).filter(d => d.state === "ready");
+  const sbus = await fetch("/api/sbus").then(r => r.json());
+  let html = `<div class="new-comparison-form"><div class="section-heading" style="margin-top:0">New comparison</div>
+    <label for="cf-sbu">Business unit</label>
+    <select id="cf-sbu">${sbus.map(s => `<option value="${s.sbu}" ${s.comparable ? "" : "disabled"}>SBU-${s.sbu} ${s.name}${s.comparable ? "" : " (field mapping not built yet)"}</option>`).join("")}</select>`;
+  let anyMissing = false;
+  FORM_SLOTS.forEach(slot => {
+    const opts = slotOptions(slot);
+    html += `<label for="${slot.id}">${slot.label}</label>`;
+    if (opts) {
+      html += `<select id="${slot.id}">${opts}</select>`;
+    } else {
+      anyMissing = true;
+      html += `<div class="slot-missing">${slot.missing} Upload one in the Documents tab.</div>`;
+    }
+  });
+  html += `
+      <label for="cf-year">Target year</label>
       <input type="text" id="cf-year" placeholder="e.g. 2024-25">
-      <button id="cf-submit">Run comparison</button>
-      <div id="cf-error" style="color:#b42318; font-size:12.5px; margin-top:10px;"></div>
-    </div>
-  `;
-  if (allDocsForForm.length === 0) {
-    compareContentEl.innerHTML = '<div class="empty-state">Upload at least one document (a Truing Up Order, an ARR, and a Petition) in the Documents tab first.</div>';
-    return;
-  }
+      <button id="cf-submit" ${anyMissing ? "disabled" : ""}>Run comparison</button>
+      <div id="cf-error" class="form-error"></div>
+    </div>`;
+  compareContentEl.innerHTML = html;
+  if (anyMissing) return;
+
+  const petitionSel = document.getElementById("cf-petition");
+  const yearInput = document.getElementById("cf-year");
+  const syncYear = () => {
+    const p = allDocsForForm.find(d => d.doc_id === petitionSel.value);
+    if (p && p.fiscal_year) yearInput.value = p.fiscal_year;
+  };
+  petitionSel.addEventListener("change", syncYear);
+  syncYear();
   document.getElementById("cf-submit").addEventListener("click", submitNewComparison);
 }
 
@@ -295,6 +389,7 @@ async function submitNewComparison() {
   const arr_doc_id = document.getElementById("cf-arr").value;
   const petition_doc_id = document.getElementById("cf-petition").value;
   const target_year = document.getElementById("cf-year").value.trim();
+  const sbu = document.getElementById("cf-sbu").value;
   const errEl = document.getElementById("cf-error");
   const btn = document.getElementById("cf-submit");
   if (!target_year) {
@@ -308,7 +403,7 @@ async function submitNewComparison() {
     const res = await fetch(COMPARE_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tuo_doc_id, arr_doc_id, petition_doc_id, target_year })
+      body: JSON.stringify({ tuo_doc_id, arr_doc_id, petition_doc_id, target_year, sbu })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -330,14 +425,19 @@ function renderComparisonDetail() {
     return;
   }
 
+  const errors = c.input_errors || [];
+  const warnings = c.input_warnings || [];
   let html = `
     <div class="compare-banner">
-      <b>FY ${escapeHtml(c.target_year)}</b> &middot;
+      <button class="secondary delete-comparison" onclick="deleteComparison()">Delete comparison</button>
+      <b>SBU-${escapeHtml(c.sbu || "G")} ${SBU_NAMES[c.sbu || "G"]} · FY ${escapeHtml(c.target_year)}</b> &middot;
       Schema: ${escapeHtml(c.tuo_filename || c.tuo_doc_id)} &middot;
       ARR: ${escapeHtml(c.arr_filename || c.arr_doc_id)} &middot;
       Petition: ${escapeHtml(c.petition_filename || c.petition_doc_id)}<br>
       ${c.fields.length} of ${c.schema_field_count} schema fields mapped and compared.
     </div>
+    ${errors.length ? `<div class="notice error"><b>These results aren't meaningful</b> — this comparison was created with the wrong documents:<ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join("")}</ul>Delete it and create a new one.</div>` : ""}
+    ${warnings.length ? `<div class="notice warn"><ul>${warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>` : ""}
     <div class="settings-panel">
       <div class="field">
         <label for="set-pct">Flag when deviation ≥</label>
@@ -376,12 +476,15 @@ function renderComparisonDetail() {
       <tr class="${rowClasses}" data-index="${i}">
         <td>${escapeHtml(f.field_label)}${f.unit ? ` <span style="color:var(--muted); font-weight:400;">(${escapeHtml(f.unit)})</span>` : ""}</td>
         <td ${f.note ? `title="${escapeHtml(f.note)}"` : 'contenteditable="true" data-field="arr_approved"'}>${f.note ? "—" : escapeHtml(f.arr_approved ?? "")}</td>
-        <td contenteditable="true" data-field="petition_claimed">${escapeHtml(f.petition_claimed ?? "")}</td>
+        <td ${f.claim_note ? `title="${escapeHtml(f.claim_note)}"` : 'contenteditable="true" data-field="petition_claimed"'}>${f.claim_note ? "—" : escapeHtml(f.petition_claimed ?? "")}</td>
         <td>${f.deviation_abs ?? "—"}</td>
         <td class="dev-pct">${f.deviation_pct != null ? f.deviation_pct + "%" : "—"}</td>
         <td>
-          ${f.needs_review ? '<span class="flag review">Needs review</span>' : ""}
+          ${f.needs_review ? `<span class="flag review" title="${escapeHtml(f.lookup_problem || "The source table was flagged during extraction, or the value was recovered from a page break - check the source page")}">Needs review</span>` : ""}
           ${f.recovered ? '<span class="flag review" title="Value reconstructed from a page-break recovery, not a normal extraction">Recovered</span>' : ""}
+          ${f.new_in_petition ? '<span class="flag review" title="Claimed in this petition but not a line in last year\'s Truing Up Order - check it by hand">New line</span>' : ""}
+          ${f.claim_note ? `<span class="flag info" title="${escapeHtml(f.claim_note)}">No separate claim</span>` : ""}
+          ${f.note ? `<span class="flag info" title="${escapeHtml(f.note)}">No ARR line</span>` : ""}
         </td>
         <td class="compare-actions">
           ${f.arr_pages && f.arr_pages.length ? `<button class="secondary" onclick="viewComparisonSource(${i}, 'arr')">ARR p.${f.arr_pages.join(",")}</button>` : ""}
@@ -436,6 +539,15 @@ async function saveFieldValue(td) {
   });
   currentComparison.fields[index] = await res.json();
   renderComparisonDetail();
+}
+
+async function deleteComparison() {
+  if (!confirm("Delete this comparison? Reviewed flags and edited values in it will be lost.")) return;
+  await fetch(`${COMPARE_API}/${currentComparisonId}`, { method: "DELETE" });
+  currentComparisonId = null;
+  currentComparison = null;
+  renderComparisonDetail();
+  await loadComparisonList();
 }
 
 async function toggleFieldReviewed(index) {

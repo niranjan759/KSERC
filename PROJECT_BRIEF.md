@@ -401,6 +401,69 @@ caused a real, confirmed bug before being found and fixed.
     generic labels ("Total", "Sub Total", "Balance") in many unrelated
     contexts.
 
+16. **Chapter detection for all three SBUs needs two rules the SBU-G-only
+    version got away without — fixed** (`list_chapters` /
+    `find_sbu_chapter`). (a) Chapter numbers must increase: ARR page 176
+    starts with the prose sentence "Chapter-3 of this order is extracted
+    below" inside Chapter 5 (SBU-T), which otherwise reads as a new chapter
+    and cuts SBU-T off at page 175, losing Table 5.17 onward. (b) A heading
+    that names several SBUs is a shared chapter, not any one SBU's (the
+    Truing Up Order's Chapter 6, "apportioning ... among SBU-G, SBU-T and
+    SBU-D"). Each SBU is recognised by name OR code, since the petition's
+    SBU-T heading is "SBU – T & SLDC" with no "Transmission". Verified: the
+    right chapter for all 15 SBU/document combinations, SBU-G's page ranges
+    unchanged. Chapter locations: TUO Ch.2/3/5 (G/T/D; energy sales and T&D
+    loss sit in Ch.4, outside SBU-D's chapter), ARR Ch.4/5/6, petitions
+    Ch.2/3/4.
+
+17. **Text overflowing from one row's cell into the next row's gets woven
+    into it character by character — fixed** (`fix_overflow_cells`). A
+    wrapped label's last word, drawn past its row border, lands in the next
+    row's cell at almost the same height as that row's own text, and
+    pdfplumber's default line grouping interleaves the two: "Edamon - Kochi
+    line compensation" came out as "TErduasmt on - Kochi..." ("Trust" woven
+    in), "ARR" as "AAvRaRil ability". Two lines of genuine text in one cell
+    never overlap vertically, so a cell with two vertically overlapping
+    lines is the signal, and the upper line goes back to the row above.
+    **A first version that also moved numbers was wrong in every numeric
+    case** — confirmed by a cell-level diff of all five documents, which
+    showed values shifted up a row (ARR Table 6.25's Non-tariff Income
+    moved into its ARR row) and dropped header cells. Now restricted to
+    letters-only label text, a non-empty remainder, not the first row, and
+    same-size fonts (so a superscript "*" isn't mistaken for overflow).
+    Re-diffed: every remaining change is a correct fix. **Not fixable this
+    way:** two pieces of text on the same baseline that physically overlap
+    in the PDF (a few SBU-D station names, e.g. "ENxLpCa nIIs ion" for "NLC
+    II Expansion") — there's no height difference to separate them by.
+
+18. **Page-break continuations are now merged in the core extraction even
+    when the column count changes — fixed, replacing finding #13's
+    per-table patch as the primary mechanism.** Finding #13 said a third
+    occurrence should trigger a core fix; the 2024-25 petition's SBU-T
+    summary (Table T6, 8 columns -> 5 across the page break) was that
+    occurrence, and its SBU-D chapter had 225 fragments. When the first
+    table on a page has no "Table" marker above it, sits in the same
+    horizontal span as the table left open on the previous page, and starts
+    with a data row, its cells are placed into the open table's columns by
+    horizontal position (`remap_to_open_table`) — using the positions of
+    columns that actually hold values on the first page (thin empty spacer
+    columns would otherwise attract right-aligned figures), containment
+    first, then nearest. Orphaned first rows (finding #11) use the same
+    geometry. Supporting rules, each found from a wrong result: drop a
+    table detected entirely inside another (G8's wrapped "ARR / Approval"
+    header came back as its own tiny table and closed G8 early); a
+    mismatched table that opens with a header row is a new table, not a
+    continuation; a paragraph detected as a table row ("6.267 | The
+    Non-Tariff income ...") is not data just because it starts with a
+    clause number; a continuation's repeated header rows are dropped.
+    Results: 2024-25 petition fragments G 48->24, T 18->1; 2024-25 TUO D
+    30->3; 2023-24 TUO G 5->0, D 51->7 (recovering e.g. SBU-D summary Table
+    5.1's last 13 rows and Table 5.9's 16 central-station rows); ARR D
+    57->34. `recover_g8_tail` stays as a fallback but no longer fires for
+    the known case. Stored documents are re-extracted automatically on
+    server start when their `extraction_version` is older than the code's
+    (reviewed tables are carried over).
+
 ## What already exists
 
 Extraction (`backend/extraction/extract_sbu_g.py`): implements findings
@@ -466,10 +529,60 @@ particular breakdown to cross-check against (confirmed: Table 2.7's own
 rows in the source PDF, not a per-item breakdown — not an extraction
 bug, that's genuinely how the source document prints it).
 
+**Intended end-to-end workflow (as confirmed by the project owner):**
+upload the PREVIOUS year's Truing Up Order (e.g. 2023-24) → learn the
+schema from it (which fields a truing-up order needs) → upload the ARR
+(5-year control-period ceilings) → upload the CURRENT year's petition
+(e.g. 2024-25) → dashboard compares the petition's claimed ("TU
+Sought") figures against ARR-approved → reviewer verifies → stage (iv)
+generates the current year's Truing Up Order following the previous
+order's structure. Documents are picked in the dashboard, never
+hardcoded. The comparison basis is TU Sought (the claim KSERC rules on),
+not the petition's raw "Actuals" column — confirmed by the owner.
+
+**Input guard (`backend/doc_meta.py`, `comparison.check_inputs`):** each
+upload is classified as Truing Up Order / ARR order / truing-up petition
+from several independent signals (cover-page phrases, chapter heading,
+table-numbering style) — deliberately not one exact phrase, since the
+2023-24 petition's cover text is OCR-garbled — along with its financial
+year (or the ARR's control period). A comparison is refused, with a
+specific message, when a slot holds the wrong document type, the same
+document is used twice, the year isn't YYYY-YY, the year is outside the
+ARR's control period, or the petition's year doesn't match. A same-year
+or later Truing Up Order is only a warning. The dashboard's dropdowns
+offer only documents of the matching type and pre-fill the year from the
+petition. Comparisons created before this existed are checked on first
+open and labelled if mismatched. Added because real use had produced
+comparisons with a petition in the ARR slot, a petition in the TUO slot,
+and a TUO in the petition slot with the year typed as "23-24" — all
+silently accepted. Also added: delete-comparison, cleanup of refused
+uploads (they used to leave the PDF on disk), and 32-hex-char ID
+validation on every ID-based path (an encoded backslash in a DELETE URL
+could otherwise escape the comparisons folder on Windows).
+
+**New-document readiness:** ARR tables are now located by title, not by
+table number (the 2022-27 ARR's 4.22/4.23/4.30/4.53/4.60/4.63 will be
+numbered differently in the next control period's ARR). An expected ARR
+row that can't be found, or a missing year column, now shows as "Needs
+review" rather than as a confirmed "no ARR line", and a comparison where
+no claimed or no approved values are found at all carries a warning that
+the document's layout may differ from the ones this was verified on.
+
+**O&M component claims (Table G13) — confirmed absent in the source, not
+an extraction gap:** the petition's "TU requirement" column is blank for
+Employee Cost / A&G / R&M in both years (checked against raw PDF text);
+KSEB claims O&M only as a normative total. These rows now show the
+ARR-approved figure with an explicit "No separate claim" flag and a link
+to the source page. While wiring this in, a case-insensitive column
+pattern `TU` matched inside "Ac**tu**al" and read the Actuals column as
+the claim (a +2452% "deviation" on A&G) — fixed with `\bTU\b`. Column
+patterns need word boundaries when short.
+
 **Coverage as of the field-mapping sweep** (both `ARR_FIELD_MAP` and
 `PETITION_TABLES` extended together, findings #14–15 fixed along the
-way): 22 fields now mapped end-to-end (ARR-approved + petition-claimed +
-computed deviation), up from the original 18 — adding the Interest &
+way): 26 fields now shown per comparison (ARR-approved + petition-claimed +
+computed deviation, or an explicit "no ARR line" / "no separate claim"
+flag), up from the original 18 — adding the Interest &
 Finance Charges breakdown (Interest on Capital Liabilities, GPF, Working
 capital, Master Trust Bonds, Sub Total, plus 3 confirmed "not budgeted"
 items: Other Interests, Less: Capitalized, Balance), sourced from ARR
@@ -496,6 +609,74 @@ mechanics) and classifying the schema's ~110 remaining fields:
 - **Per-project granular detail** (Table 2.9-style project-by-project O&M
   cost rows) — lower priority; the totals they roll up into are already
   covered by the O&M mapping.
+
+**SBU-T and SBU-D — mapped and verified, all three SBUs comparable.**
+Same discipline as SBU-G: every approved value checked against the
+orders' own "MYT Order" column, every claim against the orders' reprint
+of the petition, for both FY2023-24 and FY2024-25 (schema from TUO
+2023-24 in both runs, per the owner's workflow). Maps:
+`ARR_FIELD_MAP_T` / `ARR_FIELD_MAP_D` in `arr_budget.py`,
+`PETITION_TABLES_T` / `PETITION_TABLES_D` plus per-SBU aliases and
+"no separate claim" groups in `petition_claims.py`.
+- **SBU-T** (23 fields): summary (ARR tables titled "KSERC approval-
+  ARR of SBU-T" / "... Net ARR of SBU-T"), O&M components (no separate claim
+  — O&M is claimed only as a normative total), interest breakdown. The
+  petition's claimed column is "Truing up requirement"; in 2024-25 T6
+  every value sits one column left under a blank header
+  (`_shifted_index`, judged across the whole table, applied AFTER any
+  whole-table offset or SBU-G's G10 gets corrected twice). Source
+  discrepancies shown as-is, ARR is the authority: 2023-24 order reprints
+  Repayment 45.81 vs ARR 45.79, ARR 1588.21 vs 1588.20.
+- **SBU-D** (29 fields + new lines, below): summary from ARR Table 6.180
+  "Summary of Approved ARR&ERC for the control period"; Employee & A&G
+  from 6.119; R&M from 6.124, which lists YEARS DOWN THE ROWS
+  (`year_rows` option → `find_year_rows_column`); interest breakdown from
+  6.158's KSERC half. Petition: D76/D89 summary ("True up"), D75
+  components (the 2023-24 petition's D63 has only the O&M total, so its
+  components come back blank), D65/D77 "Comparison of I&FC" (not D71,
+  which splits the carrying cost in two). Specifics that each needed code:
+  - TUO 23-24 Table 5.1 has three labels garbled by same-baseline overlap
+    (finding #17's limit); the same fields are taken from Table 5.90/5.94,
+    which print them cleanly. The map is scoped to all three titles.
+  - "Carrying cost on revenue gap till 2023-24" changes wording every
+    year → `label_key()` drops a trailing year before matching (used by
+    the ARR map and petition matching, NOT by ARR row lookup, where a
+    year-only row label must survive).
+  - The ARR states the revenue gap positive (2939.09), the petition as
+    "(-)2939.12" → map option `negate`; `to_float` parses "(-)" and
+    "(- )1,323.75"; deviation % divides by |approved| so a negative
+    approval doesn't flip its sign.
+  - "Sharing of gains ... T&D loss reduction" row: values one column
+    left under a blank header, with NO cell (None, not "") where the
+    named column is → `_row_shifted_index`, only for exactly that shape.
+  - Petition has no Net ARR line → "no separate claim". Tariff income,
+    power-factor incentive and Total ERC are deliberately not compared:
+    the ARR budgets tariff revenue net of the PF incentive (15873.80 =
+    15903.34 − 29.54), so neither line compares one-to-one.
+  - Cross-SBU check holds: SBU-D's Cost of Generation claim = SBU-G's Net
+    ARR claim (626.48 / 714.05); Intra-State Transmission = SBU-T's Net
+    ARR claim (1553.14 / 1654.89).
+- Fields are listed in map order (which follows the orders' summary
+  tables), not schema order.
+
+**New claim lines** (`new_petition_lines`): the schema is last year's
+order, so a head of claim that's new this year was silently never
+compared — the 2024-25 petition's SBU-D "Registration charges for solar
+refunded" (24.18) and "Refund of liquidated damages" (16.30), and SBU-T
+"Refunded liquidated damages" (0.13). Each SBU's summary petition table
+(`report_new_lines`) is now checked for lines with a value that last
+year's summary table lacks (aliases respected); they're added as
+stand-in schema fields and shown flagged "New line" (plus "Needs review"
+if no ARR line is mapped). A line whose claimed amount is already matched
+to another field is not new — SBU-T's petition summary repeats the
+interest breakdown under different names ("Interest on loan" 409.93 =
+"Interest on Outstanding Capital" 409.93).
+
+**Known gap for a 2025-26 run** (TUO 24-25 as template): its SBU-D
+Tables 5.1/5.85/5.90 lose the "Sharing of gains ..." row label entirely
+(the row comes back `[None, '0.00', '131.85', ...]`), so that line would
+arrive via the new-line check rather than the schema. Unverified until a
+2025-26 petition is available.
 
 Extend `ARR_FIELD_MAP`/`PETITION_TABLES` incrementally, one verified
 concept at a time, rather than trying to cover everything at once — and

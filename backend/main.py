@@ -1,42 +1,45 @@
+import shutil
 from pathlib import Path
 
 import fitz  # PyMuPDF
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import Response
+from fastapi import BackgroundTasks, FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from extraction.extract_sbu_g import extract_section
 from extraction.compare import to_float
-import storage
+from extraction.extract_sbu_g import SBU_NAMES
 import comparison
+import ingest
+import storage
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 app = FastAPI(title="KSERC Truing-Up Review API")
 
 
+@app.exception_handler(storage.InvalidId)
+async def invalid_id_handler(request, exc):
+    return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+
+@app.on_event("startup")
+def backfill_older_uploads():
+    ingest.start_backfill()
+
+
 @app.post("/api/documents/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(background: BackgroundTasks, file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files are supported")
 
     doc_id = storage.new_doc_id()
     pdf_path = storage.pdf_path(doc_id)
     contents = await file.read()
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
     pdf_path.write_bytes(contents)
-
-    result = extract_section(str(pdf_path))
-    if "error" in result:
-        raise HTTPException(422, result["error"])
-
-    for bucket in ("order_tables", "reference_tables", "unclassified_fragments"):
-        for t in result[bucket]:
-            t["reviewed"] = False
-
-    result["doc_id"] = doc_id
-    result["filename"] = file.filename
-    storage.save_data(doc_id, result)
-    return result
+    storage.set_status(doc_id, {"state": "processing", "filename": file.filename})
+    background.add_task(ingest.process_upload, doc_id, file.filename)
+    return {"doc_id": doc_id, "filename": file.filename, "state": "processing"}
 
 
 @app.get("/api/documents")
@@ -52,14 +55,26 @@ def get_document(doc_id: str):
     return data
 
 
+@app.delete("/api/documents/{doc_id}")
+def delete_document(doc_id: str):
+    d = storage.doc_dir(doc_id)
+    if not d.exists():
+        raise HTTPException(404, "Document not found")
+    shutil.rmtree(d)
+    return {"deleted": doc_id}
+
+
 @app.patch("/api/documents/{doc_id}/{bucket}/{index}")
-async def update_table(doc_id: str, bucket: str, index: int, update: dict):
+async def update_table(doc_id: str, bucket: str, index: int, update: dict, sbu: str = "G"):
     if bucket not in ("order_tables", "reference_tables", "unclassified_fragments"):
         raise HTTPException(400, "Invalid bucket")
     data = storage.load_data(doc_id)
     if data is None:
         raise HTTPException(404, "Document not found")
-    tables = data[bucket]
+    sec = storage.section(data, sbu)
+    if sec is None:
+        raise HTTPException(404, f"This document has no SBU-{sbu} section")
+    tables = sec[bucket]
     if index < 0 or index >= len(tables):
         raise HTTPException(404, "Table not found")
 
@@ -91,10 +106,16 @@ async def create_comparison(body: dict):
     for key in ("tuo_doc_id", "arr_doc_id", "petition_doc_id", "target_year"):
         if not body.get(key):
             raise HTTPException(400, f"Missing required field: {key}")
-    data = comparison.build(body["tuo_doc_id"], body["arr_doc_id"], body["petition_doc_id"], body["target_year"])
+    data = comparison.build(body["tuo_doc_id"], body["arr_doc_id"], body["petition_doc_id"],
+                            body["target_year"], body.get("sbu", "G"))
     if "error" in data:
         raise HTTPException(422, data["error"])
     return data
+
+
+@app.get("/api/sbus")
+def list_sbus():
+    return [{"sbu": s, "name": SBU_NAMES[s], "comparable": s in comparison.mapped_sbus()} for s in storage.SBUS]
 
 
 @app.get("/api/comparisons")
@@ -107,7 +128,14 @@ def get_comparison(comparison_id: str):
     data = comparison.load_comparison(comparison_id)
     if data is None:
         raise HTTPException(404, "Comparison not found")
-    return data
+    return comparison.ensure_checked(comparison_id, data)
+
+
+@app.delete("/api/comparisons/{comparison_id}")
+def delete_comparison(comparison_id: str):
+    if not comparison.delete_comparison(comparison_id):
+        raise HTTPException(404, "Comparison not found")
+    return {"deleted": comparison_id}
 
 
 @app.patch("/api/comparisons/{comparison_id}/fields/{index}")
@@ -132,7 +160,7 @@ async def update_comparison_field(comparison_id: str, index: int, update: dict):
         claimed = to_float(field["petition_claimed"])
         if approved is not None and claimed is not None:
             field["deviation_abs"] = round(claimed - approved, 2)
-            field["deviation_pct"] = round(field["deviation_abs"] / approved * 100, 2) if approved != 0 else None
+            field["deviation_pct"] = round(field["deviation_abs"] / abs(approved) * 100, 2) if approved != 0 else None
         else:
             field["deviation_abs"] = None
             field["deviation_pct"] = None

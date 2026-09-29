@@ -48,11 +48,22 @@ CLAUSE_NUM_ONLY_PAT = re.compile(r'^\d+\.\d+(?:\.\d+)?$')
 
 
 def is_prose_row(row):
-    non_empty = [c for c in row if c and str(c).strip()]
+    non_empty = [str(c).strip() for c in row if c and str(c).strip()]
     if len(non_empty) == 1:
-        return bool(PARA_NUM_PAT.match(non_empty[0].strip()))
+        return bool(PARA_NUM_PAT.match(non_empty[0]))
     if len(non_empty) == 2:
-        return bool(CLAUSE_NUM_ONLY_PAT.match(non_empty[0].strip()))
+        return bool(CLAUSE_NUM_ONLY_PAT.match(non_empty[0]))
+    # A paragraph that pdfplumber split across several cells: a clause
+    # number, then only words - no figure anywhere - adding up to a
+    # sentence ("6.267 | The Non-Tariff income claimed | by KSEB | Ltd for
+    # | ...", ARR Table 6.164; "2.13 | Amortisation of intangible assets |
+    # towards | software development | cost", Petition 2023-24 G13).
+    # Became visible once page breaks were bridged: these used to be cut
+    # off by an unrelated table closing first.
+    if len(non_empty) >= 3 and CLAUSE_NUM_ONLY_PAT.match(non_empty[0]):
+        rest = non_empty[1:]
+        if not any(NUMERIC_CELL_PAT.match(c.replace(" ", "")) for c in rest) and sum(len(c) for c in rest) > 40:
+            return True
     return False
 
 
@@ -79,6 +90,91 @@ def looks_like_header_continuation_row(row):
     return not any(NUMERIC_CELL_PAT.match(str(c).strip()) for c in non_empty)
 
 
+def _cell_lines(chars, bbox, tol=1.5):
+    """Text lines inside one cell, grouped by vertical position with a
+    tighter tolerance than pdfplumber's default (3pt), which is loose
+    enough to merge two overlapping lines into one."""
+    x0, top, x1, bottom = bbox
+    inside = sorted(
+        (c for c in chars
+         if x0 <= (c["x0"] + c["x1"]) / 2 <= x1 and top <= (c["top"] + c["bottom"]) / 2 <= bottom),
+        key=lambda c: (c["top"], c["x0"]))
+    # lines are formed from visible characters only - a stray space glyph at
+    # an odd height would otherwise count as a "line" of its own - but the
+    # space glyphs are kept for the text, or words run together ("NLCTPSII")
+    lines = []
+    for c in inside:
+        if not c["text"].strip():
+            continue
+        for ln in lines:
+            if abs(ln["top"] - c["top"]) <= tol:
+                ln["bottom"] = max(ln["bottom"], c["bottom"])
+                break
+        else:
+            lines.append({"top": c["top"], "bottom": c["bottom"]})
+    for ln in lines:
+        ln["chars"] = [c for c in inside if abs(c["top"] - ln["top"]) <= tol and c["text"].strip()]
+        members = [c for c in inside if abs(c["top"] - ln["top"]) <= tol]
+        ln["text"] = pdfplumber.utils.extract_text(members).strip()
+    return lines
+
+
+def fix_overflow_cells(page, table, rows):
+    """Undo text that has spilled from one row's cell into the next row's.
+
+    When a wrapped label overflows its cell (the source PDF draws it past
+    the row border), its last word lands inside the next row's cell at
+    almost the same height as that row's own text, and pdfplumber's
+    default line grouping interleaves the two character by character -
+    confirmed on Truing Up Order 2023-24 Table 3.3/3.24 (SBU-T), where
+    "Edamon - Kochi line compensation" came out as "TErduasmt on - Kochi
+    line compensation" ("Trust", from "Additional contribution to Master
+    Trust" above, woven into "Edamon"), and "ARR" as "AAvRaRil ability".
+
+    Two lines of genuine text in one cell never overlap vertically - line
+    spacing keeps them apart - so a cell with two vertically overlapping
+    lines is the signal. The upper line is the foreign one (it came down
+    from the row above): it's moved back onto the end of the same
+    column's cell in the previous row, and the rest stays. Cells without
+    overlapping lines are left exactly as pdfplumber extracted them."""
+    x0, top, x1, bottom = table.bbox
+    chars = [c for c in page.chars if x0 <= c["x0"] and c["x1"] <= x1 and top <= c["top"] and c["bottom"] <= bottom]
+    for ri, trow in enumerate(table.rows):
+        if ri >= len(rows):
+            break
+        if ri == 0:
+            continue  # no row above to give the text back to
+        for ci, bbox in enumerate(trow.cells):
+            if bbox is None or ci >= len(rows[ri]):
+                continue
+            lines = _cell_lines(chars, bbox)
+            if len(lines) < 2:
+                continue
+            upper, lower = lines[0], lines[1]
+            if lower["top"] >= upper["bottom"] - 1:
+                continue  # stacked normally, no overlap
+            # a superscript / footnote mark ("Availability*") also sits a
+            # little off its line - but it's short and in a smaller font;
+            # spilled-over text is a whole word at body size
+            size = lambda ln: sum(c["size"] for c in ln["chars"]) / len(ln["chars"])
+            if len(upper["text"]) < 3 or abs(size(upper) - size(lower)) > 0.15 * size(lower):
+                continue
+            # Only move label text. Every confirmed overflow was words
+            # ("Trust", "compensation", "Cr)"); applying this to numbers
+            # was checked across all five documents and was wrong every
+            # time - pdfplumber sometimes stacks two rows' figures in one
+            # cell with a slight overlap (Petition 2023-24 Table D2, ARR
+            # Table 6.25), and those must stay where they are.
+            if re.search(r'\d', upper["text"]) or not re.search(r'[A-Za-z]', upper["text"]):
+                continue
+            if not lower["text"]:
+                continue
+            rows[ri][ci] = " ".join(ln["text"] for ln in lines[1:]) or None
+            if ri > 0 and ci < len(rows[ri - 1]) and rows[ri - 1][ci]:
+                rows[ri - 1][ci] = f"{rows[ri - 1][ci]} {upper['text']}"
+    return rows
+
+
 def join_cell(cell):
     if cell is None:
         return None
@@ -89,61 +185,67 @@ def _normalize_dashes(text):
     return re.sub(r'[–—]', '-', text)
 
 
-def find_chapter_by_keyword(pdf, patterns):
-    """Scan the whole doc for CHAPTER heading lines; return (start_page, end_page)
-    [0-indexed, end exclusive] for the first chapter whose heading text matches
-    one of `patterns` (compiled regexes, tried in priority order). Matching by
-    keyword, not by chapter number, since chapter numbering meaning can differ
-    across document types.
-
-    `patterns` is tried as an ordered list: the whole document is scanned for
-    the first pattern before falling back to the next one. This matters
-    because the ARR order's SBU-G chapter ("Chapter-4, ARR&ERC of SBU-G") never
-    spells out "GENERATION" in its heading the way the Truing Up Order and the
-    Petition both do ("...STRATEGIC BUSINESS UNIT GENERATION (SBU-G)") — so a
-    single literal "GENERATION" keyword silently finds nothing on that document
-    type. Falling back to a looser "SBU-G" pattern only when "GENERATION" isn't
-    found anywhere avoids that looser pattern accidentally matching an earlier,
-    unrelated chapter that happens to mention "SBU-G" in passing (e.g. Chapter-1
-    introductions list all three SBUs by name).
+def list_chapters(pdf):
+    """Every chapter in the document as {start_page, end_page, heading}
+    [0-indexed, end exclusive]. Scans the whole document once; callers that
+    need several SBUs from the same PDF should reuse the result.
 
     The chapter's descriptive title is not always on the same line as the
     "CHAPTER-N" marker — some documents put "CHAPTER-2" on its own line and
-    the title ("...GENERATION (SBU-G)") on the next 1-2 lines. So the keyword
-    search window includes a few lines after the marker line, not just it."""
-    if not isinstance(patterns, (list, tuple)):
-        patterns = [patterns]
+    the title ("...GENERATION (SBU-G)") on the next 1-2 lines. So the heading
+    window includes a few lines after the marker line, not just it.
 
+    Chapter numbers must increase: a page that happens to START with prose
+    like "Chapter-3 of this order is extracted below" (ARR 2022-27, page 176,
+    inside Chapter 5 / SBU-T) otherwise reads as a new chapter and cuts the
+    real one short - SBU-T would have ended at page 175, losing Table 5.17
+    onward."""
     chapters = []
+    last_num = 0
     for i, page in enumerate(pdf.pages):
         text = page.extract_text() or ""
         lines = text.split("\n")
         for li, line in enumerate(lines[:4]):
             m = CHAPTER_PAT.match(line.strip())
             if m:
-                # pull in up to 3 following lines as part of the heading window,
-                # in case the title wraps onto separate lines
-                window = " ".join(l.strip() for l in lines[li:li + 4])
-                chapters.append({"start_page": i, "heading": window})
+                num = int(m.group(1))
+                if num > last_num:
+                    last_num = num
+                    window = " ".join(l.strip() for l in lines[li:li + 4])
+                    chapters.append({"start_page": i, "heading": window})
                 break
     for idx, ch in enumerate(chapters):
         ch["end_page"] = chapters[idx + 1]["start_page"] if idx + 1 < len(chapters) else len(pdf.pages)
-
-    for pattern in patterns:
-        for ch in chapters:
-            if pattern.search(_normalize_dashes(ch["heading"])):
-                return ch["start_page"], ch["end_page"], ch["heading"]
-    return None, None, None
+    return chapters
 
 
-# Tried in order: plain "GENERATION" first (how the Truing Up Order and the
-# Petition both title the SBU-G chapter), falling back to the narrower
-# "SBU-G" abbreviation only if no chapter anywhere spells out "GENERATION"
-# (how the ARR order titles it: "Chapter-4, ARR&ERC of SBU-G").
-SBU_G_CHAPTER_PATTERNS = [
-    re.compile(r'GENERATION', re.I),
-    re.compile(r'SBU\s*-\s*G\b', re.I),
-]
+SBU_NAMES = {"G": "Generation", "T": "Transmission", "D": "Distribution"}
+# Each SBU is recognised by its full name OR its code, because documents
+# differ: the Truing Up Order and petition spell out "GENERATION", while the
+# ARR's heading is just "ARR&ERC of SBU-G"; the petition's SBU-T heading is
+# "SBU – T & SLDC" with no "Transmission" at all.
+_SBU_PATS = {
+    s: re.compile(rf'{name}|SBU\s*-?\s*{s}\b', re.I) for s, name in SBU_NAMES.items()
+}
+
+
+def find_sbu_chapter(chapters, sbu):
+    """The chapter whose heading names this SBU and no other. Headings that
+    name several SBUs are shared chapters, not any one SBU's - e.g. the
+    Truing Up Order's "APPORTIONING THE SAME AMONG SBU-G, SBU-T AND SBU-D"
+    (common expenses) or an introduction listing all three units. Falls
+    back to the first heading that names this SBU at all, so an SBU chapter
+    whose intro mentions another unit in passing is still found."""
+    def named(ch):
+        h = _normalize_dashes(ch["heading"])
+        return {s for s, p in _SBU_PATS.items() if p.search(h)}
+    for ch in chapters:
+        if named(ch) == {sbu}:
+            return ch
+    for ch in chapters:
+        if sbu in named(ch):
+            return ch
+    return None
 
 
 def row_as_marker(row):
@@ -171,29 +273,171 @@ def _column_edges(table):
     return [cells[0][0]] + [c[2] for c in cells]
 
 
-def _reconstruct_orphan_row(page, line, column_edges):
-    """Split a raw text line back into per-column cell strings using column
-    x-boundaries borrowed from a neighboring table (see
-    collect_orphan_continuation_rows). Buckets each word by its horizontal
-    center, not its left edge, since a word can straddle a column boundary
-    by a point or two in these PDFs."""
+def _value_column_centers(table, rows, ncols):
+    """For each column, the median horizontal center of the cells that
+    actually hold something in the table's data rows (rows with at least
+    one number); None for columns that never do.
+
+    Deliberately not column boundaries: these tables are full of hair-thin
+    empty spacer columns (the None/'' header cells), and right-aligned
+    figures sit right against a boundary, so bucketing by boundaries put
+    values in the neighbouring spacer column. Only columns that really
+    carry values are candidates here, so a spacer can't attract anything."""
+    cols = []
+    for j in range(ncols):
+        boxes = []
+        for ri, trow in enumerate(table.rows):
+            if ri >= len(rows) or j >= len(trow.cells) or j >= len(rows[ri]):
+                continue
+            if not any(c and NUMERIC_CELL_PAT.match(str(c).replace(" ", "")) for c in rows[ri]):
+                continue  # header / title rows don't count
+            bbox = trow.cells[j]
+            if bbox is not None and rows[ri][j] not in (None, ""):
+                boxes.append(bbox)
+        if boxes:
+            centers = sorted((b[0] + b[2]) / 2 for b in boxes)
+            cols.append({"center": centers[len(centers) // 2],
+                         "x0": min(b[0] for b in boxes), "x1": max(b[2] for b in boxes)})
+        else:
+            cols.append(None)
+    return cols if any(c is not None for c in cols) else None
+
+
+def _nearest_column(x, cols):
+    """The value column whose extent contains x; failing that, the nearest
+    by center. Containment first: labels are left-aligned in wide columns,
+    so a short label ("ARR") sits nearer the narrow serial column's center
+    than its own column's, while still lying inside its own column."""
+    live = [j for j, c in enumerate(cols) if c is not None]
+    for j in live:
+        if cols[j]["x0"] <= x <= cols[j]["x1"]:
+            return j
+    return min(live, key=lambda j: abs(cols[j]["center"] - x))
+
+
+def remap_to_open_table(table, rows, open_table):
+    """Re-lay a continuation page's table onto the open table's columns.
+
+    pdfplumber sometimes renders the continuation of a table on the next
+    page with a DIFFERENT number of raw columns than the table's header
+    (finding #13: Petition 2024-25 Table G8 went 9 -> 6 columns across the
+    page break, Table T6 8 -> 5), which the continuation check below can't
+    merge because it requires matching column counts - so those rows
+    silently became unclassified fragments. Each cell is instead placed in
+    whichever of the open table's columns its horizontal center falls in:
+    same table, same page layout, so the columns sit at the same x-positions
+    even when pdfplumber splits them differently."""
+    centers = open_table["_col_centers"]
+    ncols = len(open_table["header"])
+    out = []
+    for ri, trow in enumerate(table.rows):
+        if ri >= len(rows):
+            break
+        new = [None] * ncols
+        for ci, bbox in enumerate(trow.cells):
+            text = rows[ri][ci] if ci < len(rows[ri]) else None
+            if bbox is None or text in (None, ""):
+                continue
+            k = _nearest_column((bbox[0] + bbox[2]) / 2, centers)
+            new[k] = f"{new[k]} {text}" if new[k] else text
+        out.append(new)
+    return out
+
+
+def _is_data_row(row):
+    """Has a figure other than a leading clause number. A paragraph
+    detected as a table row ("6.267 | The Non-Tariff income claimed | by
+    KSEB | ...", ARR Table 6.164's page break) starts with a number too,
+    but nothing else in it is one."""
+    cells = [str(c).strip() for c in row if c and str(c).strip()]
+    if cells and CLAUSE_NUM_ONLY_PAT.match(cells[0]):
+        cells = cells[1:]
+    return any(NUMERIC_CELL_PAT.match(c.replace(" ", "")) for c in cells)
+
+
+def _strip_repeated_header(rows, header):
+    """Drop leading rows of a continuation that just repeat the table's
+    column headings (ARR Table 6.83 reprints "Sl No / Source / KSEB Ltd /
+    Energy in MU ..." at the top of its continuation page): rows with no
+    figures whose every cell already appears in the table's header text."""
+    header_text = _norm_words(" ".join(str(h) for h in header if h))
+    i = 0
+    while i < len(rows) and not _is_data_row(rows[i]):
+        cells = [str(c) for c in rows[i] if c and str(c).strip()]
+        if cells and not all(_norm_words(c) in header_text for c in cells):
+            break
+        i += 1
+    return rows[i:]
+
+
+def _norm_words(s):
+    return " ".join(re.sub(r'[^a-z0-9]+', ' ', s.lower()).split())
+
+
+def _drop_nested_tables(tables, tol=2):
+    """Discard a detected table lying entirely inside another table's area
+    on the same page. pdfplumber sometimes detects part of a table a second
+    time as its own tiny table - confirmed on Petition 2024-25 page 16,
+    where Table G8's wrapped "ARR / Approval" column header came back as a
+    separate 1-column table inside G8. Its text is already in the outer
+    table, and processing it afterwards closed G8 too early, so G8's
+    continuation on page 17 was lost."""
+    def inside(a, b):
+        return (a.bbox[0] >= b.bbox[0] - tol and a.bbox[1] >= b.bbox[1] - tol
+                and a.bbox[2] <= b.bbox[2] + tol and a.bbox[3] <= b.bbox[3] + tol)
+    return [t for t in tables if not any(o is not t and inside(t, o) and not inside(o, t) for o in tables)]
+
+
+def _is_page_continuation(table, tables, markers, open_table, pnum):
+    """This table plausibly continues the table left open on the previous
+    page: it's the first table on the page, no "Table N" marker sits above
+    it, the open table was last extended on the immediately preceding page,
+    and the two occupy the same horizontal span."""
+    if open_table is None or not open_table.get("_col_centers"):
+        return False
+    if table is not min(tables, key=lambda t: t.bbox[1]):
+        return False
+    # pages are 1-indexed, pnum is this page's 0-index: pnum means "ended on
+    # the previous page"; pnum + 1 means an orphaned first row from this
+    # page has already been attached to it (collect_orphan_continuation_rows)
+    if open_table["pages"][-1] not in (pnum, pnum + 1):
+        return False
+    if any(m[0] < table.bbox[1] for m in markers):
+        return False
+    ox0, ox1 = open_table["_x_span"]
+    x0, x1 = table.bbox[0], table.bbox[2]
+    overlap = min(ox1, x1) - max(ox0, x0)
+    return overlap >= 0.7 * min(ox1 - ox0, x1 - x0)
+
+
+def _reconstruct_orphan_row(page, line, column_edges=None, centers=None):
+    """Split a raw text line back into per-column cell strings, using either
+    the open table's value-column centers (preferred - see
+    _value_column_centers) or column x-boundaries borrowed from a
+    neighboring table. Each word is placed by its horizontal center, not its
+    left edge, since a word can straddle a column boundary by a point or two
+    in these PDFs."""
     words = [w for w in page.extract_words()
              if w["top"] >= line["top"] - 1 and w["bottom"] <= line["bottom"] + 1]
     if not words:
         return None
-    cells = [[] for _ in range(len(column_edges) - 1)]
+    ncols = len(centers) if centers is not None else len(column_edges) - 1
+    cells = [[] for _ in range(ncols)]
     for w in words:
         center = (w["x0"] + w["x1"]) / 2
-        idx = len(cells) - 1
-        for ci in range(len(cells)):
-            if center < column_edges[ci + 1]:
-                idx = ci
-                break
+        if centers is not None:
+            idx = _nearest_column(center, centers)
+        else:
+            idx = ncols - 1
+            for ci in range(ncols):
+                if center < column_edges[ci + 1]:
+                    idx = ci
+                    break
         cells[idx].append(w["text"])
     return [(" ".join(c).strip() or None) for c in cells]
 
 
-def collect_orphan_continuation_rows(page, open_table, tables):
+def collect_orphan_continuation_rows(page, open_table, tables, pnum):
     """A table continuing from the previous page can lose its very first
     row entirely: pdfplumber's find_tables() anchors a table's bbox to the
     ruling lines/text alignment it detects on THIS page, and a continuation
@@ -213,12 +457,18 @@ def collect_orphan_continuation_rows(page, open_table, tables):
     this page's first table, splitting it into cells using that SAME
     table's own column x-boundaries (same table, same columns, so its
     boundaries apply to the row that continues it)."""
-    if open_table is None or not tables:
+    if open_table is None or not tables or open_table["pages"][-1] != pnum:
         return []
     first_table = min(tables, key=lambda t: t.bbox[1])
-    column_edges = _column_edges(first_table)
-    if column_edges is None or len(column_edges) - 1 != len(open_table["header"]):
-        return []
+    # Prefer the open table's own column geometry: the continuation page's
+    # table may be split into a different number of columns (finding #13),
+    # which is exactly when its own boundaries can't be used.
+    centers = open_table.get("_col_centers")
+    column_edges = None
+    if centers is None:
+        column_edges = _column_edges(first_table)
+        if column_edges is None or len(column_edges) - 1 != len(open_table["header"]):
+            return []
 
     orphan_rows = []
     for line in page.extract_text_lines():
@@ -232,13 +482,27 @@ def collect_orphan_continuation_rows(page, open_table, tables):
         text = line["text"].strip()
         if not text or TABLE_MARKER_PAT.match(text) or CHAPTER_PAT.match(text):
             continue
-        row = _reconstruct_orphan_row(page, line, column_edges)
-        if row and any(c and NUMERIC_CELL_PAT.match(c.replace(" ", "").replace(",", "")) for c in row):
+        # a paragraph's first line ("6.267 The Non-Tariff income claimed by
+        # KSEB Ltd ...") sitting just above a table isn't a table row. Judged
+        # by the words, not just the leading number: a row of pure figures
+        # ("0.00 131.85 0.00") starts the same way and is real data.
+        if PARA_NUM_PAT.match(text) and sum(t.isalpha() for t in text.split()) >= 5:
+            continue
+        row = _reconstruct_orphan_row(page, line, column_edges, centers)
+        if row and _is_data_row(row):
             orphan_rows.append(row)
     return orphan_rows
 
 
-def extract_section(pdf_path, chapter_patterns=SBU_G_CHAPTER_PATTERNS):
+def extract_all_sections(pdf_path):
+    """{"G": ..., "T": ..., "D": ...} - each extract_section() result - from
+    a single chapter scan, rather than re-reading every page once per SBU."""
+    with pdfplumber.open(pdf_path) as pdf:
+        chapters = list_chapters(pdf)
+    return {sbu: extract_section(pdf_path, sbu, chapters) for sbu in SBU_NAMES}
+
+
+def extract_section(pdf_path, sbu="G", chapters=None):
     results = []
     reference_tables = []
     unclassified_fragments = []
@@ -249,6 +513,8 @@ def extract_section(pdf_path, chapter_patterns=SBU_G_CHAPTER_PATTERNS):
     def close_open():
         nonlocal open_table
         if open_table is not None:
+            open_table.pop("_col_centers", None)
+            open_table.pop("_x_span", None)
             if open_table["table_no"] is None:
                 unclassified_fragments.append(open_table)
             else:
@@ -256,9 +522,10 @@ def extract_section(pdf_path, chapter_patterns=SBU_G_CHAPTER_PATTERNS):
             open_table = None
 
     with pdfplumber.open(pdf_path) as pdf:
-        start, end, heading = find_chapter_by_keyword(pdf, chapter_patterns)
-        if start is None:
-            return {"error": "No SBU-G chapter heading found in this document"}
+        chapter = find_sbu_chapter(chapters if chapters is not None else list_chapters(pdf), sbu)
+        if chapter is None:
+            return {"error": f"No SBU-{sbu} chapter heading found in this document"}
+        start, end, heading = chapter["start_page"], chapter["end_page"], chapter["heading"]
 
         for pnum in range(start, end):
             page = pdf.pages[pnum]
@@ -271,9 +538,9 @@ def extract_section(pdf_path, chapter_patterns=SBU_G_CHAPTER_PATTERNS):
                     table_no, is_order = _looks_like_marker(prefix, num)
                     markers.append((line["top"], table_no, is_order, trailing))
 
-            tables = page.find_tables()
+            tables = _drop_nested_tables(page.find_tables())
 
-            orphan_rows = collect_orphan_continuation_rows(page, open_table, tables)
+            orphan_rows = collect_orphan_continuation_rows(page, open_table, tables, pnum)
             if orphan_rows:
                 open_table["data_rows"].extend(orphan_rows)
                 if (pnum + 1) not in open_table["pages"]:
@@ -281,9 +548,21 @@ def extract_section(pdf_path, chapter_patterns=SBU_G_CHAPTER_PATTERNS):
 
             for t in tables:
                 raw = t.extract()
-                rows = [[join_cell(c) for c in r] for r in raw]
+                rows = fix_overflow_cells(page, t, [[join_cell(c) for c in r] for r in raw])
                 if not rows:
                     continue
+                table_rows = rows  # as laid out on this page, aligned with t.rows
+                # A continuation page starts straight with data rows (finding
+                # #5 - no repeated header). A mismatched table that opens with
+                # a header-like row (no figures) is a new table whose title
+                # fell at the bottom of the previous page - merging it jammed
+                # its header into the previous table's columns (Petition
+                # 2024-25, SBU-D power purchase tables).
+                starts_with_data = _is_data_row(rows[0])
+                if (len(rows[0]) != len(open_table["header"]) if open_table else False) \
+                        and starts_with_data and not is_prose_row(rows[0]) \
+                        and _is_page_continuation(t, tables, markers, open_table, pnum):
+                    rows = remap_to_open_table(t, rows, open_table)
 
                 # --- split out any embedded table titles or trailing prose hiding inside this raw table ---
                 segments = [[]]
@@ -364,7 +643,7 @@ def extract_section(pdf_path, chapter_patterns=SBU_G_CHAPTER_PATTERNS):
                             data = seg_rows[1:]
                         else:
                             data = seg_rows
-                        open_table["data_rows"].extend(data)
+                        open_table["data_rows"].extend(_strip_repeated_header(data, open_table["header"]))
                         if (pnum + 1) not in open_table["pages"]:
                             open_table["pages"].append(pnum + 1)
                         continue
@@ -437,7 +716,11 @@ def extract_section(pdf_path, chapter_patterns=SBU_G_CHAPTER_PATTERNS):
                         "pages": [pnum + 1],
                         "header": header,
                         "unit_row": unit_row,
-                        "data_rows": seg_rows[data_start:]
+                        "data_rows": seg_rows[data_start:],
+                        # page geometry, used only to merge this table's
+                        # continuation on the next page; stripped on close
+                        "_col_centers": _value_column_centers(t, table_rows, len(header)),
+                        "_x_span": (t.bbox[0], t.bbox[2]),
                     }
                     open_is_order = bool(m_is_order) if marker_no else True
                     if marker_no is not None:

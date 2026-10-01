@@ -494,6 +494,31 @@ def collect_orphan_continuation_rows(page, open_table, tables, pnum):
     return orphan_rows
 
 
+def normalize_table_rows(header, rows):
+    """Pad or trim every row to the table's actual column count.
+
+    pdfplumber and page-break continuations can produce a row one cell short,
+    one cell long, or with a filler column stuck in the middle. Rendering the
+    raw length directly creates visibly improper tables, even when the value
+    stream itself is otherwise valid. Normalizing here keeps the browser table
+    aligned without losing any meaningful value to the left or right.
+    """
+    if not rows:
+        return []
+    expected = len(header) if header is not None else max(len(r) for r in rows if isinstance(r, (list, tuple)))
+    if expected <= 0:
+        return [list(r) if isinstance(r, (list, tuple)) else [r] for r in rows]
+    out = []
+    for row in rows:
+        cells = list(row) if row is not None else []
+        if len(cells) < expected:
+            cells.extend([None] * (expected - len(cells)))
+        elif len(cells) > expected:
+            cells = cells[:expected]
+        out.append(cells)
+    return out
+
+
 def extract_all_sections(pdf_path):
     """{"G": ..., "T": ..., "D": ...} - each extract_section() result - from
     a single chapter scan, rather than re-reading every page once per SBU."""
@@ -513,6 +538,10 @@ def extract_section(pdf_path, sbu="G", chapters=None):
     def close_open():
         nonlocal open_table
         if open_table is not None:
+            open_table["header"] = normalize_table_rows(open_table["header"], [open_table["header"]])[0]
+            if open_table.get("unit_row") is not None:
+                open_table["unit_row"] = normalize_table_rows(open_table["header"], [open_table["unit_row"]])[0]
+            open_table["data_rows"] = normalize_table_rows(open_table["header"], open_table.get("data_rows", []))
             open_table.pop("_col_centers", None)
             open_table.pop("_x_span", None)
             if open_table["table_no"] is None:
@@ -710,13 +739,16 @@ def extract_section(pdf_path, sbu="G", chapters=None):
                                     title = tr2 if tr2 else (lines_all[i+1]["text"].strip() if i+1 < len(lines_all) else None)
                                     break
 
+                    data_rows = normalize_table_rows(header, seg_rows[data_start:])
+                    if unit_row is not None:
+                        unit_row = normalize_table_rows(header, [unit_row])[0]
                     open_table = {
                         "table_no": marker_no,
                         "title": title,
                         "pages": [pnum + 1],
                         "header": header,
                         "unit_row": unit_row,
-                        "data_rows": seg_rows[data_start:],
+                        "data_rows": data_rows,
                         # page geometry, used only to merge this table's
                         # continuation on the next page; stripped on close
                         "_col_centers": _value_column_centers(t, table_rows, len(header)),

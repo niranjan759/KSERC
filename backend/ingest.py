@@ -35,7 +35,7 @@ def process_upload(doc_id, filename):
     except Exception:
         _fail(doc_id, filename, "Couldn't read this PDF.")
         return
-    if all("error" in s for s in sections.values()):
+    if all("error" in sections[k] for k in storage.SBUS):
         _fail(doc_id, filename, NOT_REGULATORY)
         return
     _mark_unreviewed(sections)

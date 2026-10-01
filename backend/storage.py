@@ -17,8 +17,10 @@ SBUS = ("G", "T", "D")
 #   2 - all three SBUs; cross-row text overflow fix; page-break
 #       continuations merged even when the column count changes; nested
 #       duplicate tables dropped
-EXTRACTION_VERSION = 2
-SECTION_KEYS = ("order_tables", "reference_tables", "unclassified_fragments", "chapter_heading", "pages")
+#   3 - every chapter extracted, not just the SBU ones (keys "C<n>" / "CA")
+#   4 - each section also carries its chapter's page text ("text")
+EXTRACTION_VERSION = 4
+SECTION_KEYS = ("order_tables", "reference_tables", "unclassified_fragments", "chapter_heading", "pages", "text")
 
 
 def new_doc_id():
@@ -131,8 +133,9 @@ def list_docs():
                 "updating": data.get("extraction_version", 1) < EXTRACTION_VERSION,
                 "filename": data.get("filename"),
                 "sbus_available": [s for s in SBUS if section(data, s)],
-                "order_table_count": sum(len((section(data, s) or {}).get("order_tables", [])) for s in SBUS),
-                "needs_review_count": sum(1 for s in SBUS for t in (section(data, s) or {}).get("order_tables", [])
+                "chapter_count": sum(1 for k in data["sbus"] if section(data, k)),
+                "order_table_count": sum(len((section(data, k) or {}).get("order_tables", [])) for k in data["sbus"]),
+                "needs_review_count": sum(1 for k in data["sbus"] for t in (section(data, k) or {}).get("order_tables", [])
                                           if t.get("needs_review")),
                 "chapter_heading": g.get("chapter_heading"),
                 "doc_type": meta["doc_type"],

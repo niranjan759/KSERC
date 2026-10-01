@@ -1,6 +1,7 @@
 import pdfplumber, re
 
 UNIT_PAT = re.compile(r'^\(?(Rs\.?\s*(Cr|Crore|Lakh)?|MU|kWh|Rs/kWh|Rs\.?/unit|%|MW|Nos?\.?)\)?\.?$', re.I)
+ANNEXURE_PAT = re.compile(r'^\s*ANNEXURES?.{0,60}$', re.I)
 CHAPTER_PAT = re.compile(r'^\s*CHAPTER\s*[–—-]?\s*(\d+)\s*[:–—-]?\s*(.*)$', re.I)
 
 # Matches every table-numbering convention seen so far:
@@ -212,8 +213,22 @@ def list_chapters(pdf):
                 if num > last_num:
                     last_num = num
                     window = " ".join(l.strip() for l in lines[li:li + 4])
-                    chapters.append({"start_page": i, "heading": window})
+                    chapters.append({"start_page": i, "heading": window, "number": str(num)})
                 break
+    # Annexures follow the last chapter and have no "CHAPTER-N" marker
+    # (Truing Up Order 2024-25: "Annexures", p.232); the first page after
+    # the last chapter's start that opens with an ANNEXURE heading begins them
+    first_after = chapters[-1]["start_page"] + 1 if chapters else 0
+    for i in range(first_after, len(pdf.pages)):
+        lines = (pdf.pages[i].extract_text() or "").split("\n")
+        for li, line in enumerate(lines[:4]):
+            if ANNEXURE_PAT.match(line.strip()):
+                chapters.append({"start_page": i, "number": "A",
+                                 "heading": " ".join(l.strip() for l in lines[li:li + 4])})
+                break
+        else:
+            continue
+        break
     for idx, ch in enumerate(chapters):
         ch["end_page"] = chapters[idx + 1]["start_page"] if idx + 1 < len(chapters) else len(pdf.pages)
     return chapters
@@ -519,16 +534,47 @@ def normalize_table_rows(header, rows):
     return out
 
 
+def chapter_label(chapter):
+    """Short tab label for a chapter: its heading without the "CHAPTER-N"
+    marker and the clause text that follows the title."""
+    h = _normalize_dashes(chapter["heading"])
+    h = re.sub(r'^\s*CHAPTER\s*\S*\s*\d+\s*[:\-]?\s*', '', h, flags=re.I)
+    h = re.split(r'\s\d+\.\d*\s', h)[0].strip()
+    if len(h) > 45:
+        h = h[:45].rsplit(" ", 1)[0] + "…"
+    n = chapter.get("number")
+    return f"Annexures" if n == "A" else f"Ch.{n} {h.title()}"
+
+
 def extract_all_sections(pdf_path):
-    """{"G": ..., "T": ..., "D": ...} - each extract_section() result - from
-    a single chapter scan, rather than re-reading every page once per SBU."""
+    """Every chapter of the document, from a single chapter scan. SBU
+    chapters are keyed "G"/"T"/"D" (what comparisons read); every other
+    chapter - introduction, energy sales, common expenses, consolidated
+    accounts, annexures - is keyed "C<number>" ("CA" for annexures)."""
     with pdfplumber.open(pdf_path) as pdf:
         chapters = list_chapters(pdf)
-    return {sbu: extract_section(pdf_path, sbu, chapters) for sbu in SBU_NAMES}
+    out = {sbu: extract_section(pdf_path, sbu, chapters) for sbu in SBU_NAMES}
+    sbu_starts = {s["pages"][0] for s in out.values() if "error" not in s}
+    for ch in chapters:
+        if ch["start_page"] + 1 in sbu_starts:
+            continue
+        out[f"C{ch['number']}"] = extract_chapter(pdf_path, ch)
+    return out
 
 
 def extract_section(pdf_path, sbu="G", chapters=None):
+    with pdfplumber.open(pdf_path) as pdf:
+        chapter = find_sbu_chapter(chapters if chapters is not None else list_chapters(pdf), sbu)
+    if chapter is None:
+        return {"error": f"No SBU-{sbu} chapter heading found in this document"}
+    section = extract_chapter(pdf_path, chapter)
+    section["label"] = f"SBU-{sbu} {SBU_NAMES[sbu]}"
+    return section
+
+
+def extract_chapter(pdf_path, chapter):
     results = []
+    page_texts = []
     reference_tables = []
     unclassified_fragments = []
     open_table = None
@@ -551,13 +597,11 @@ def extract_section(pdf_path, sbu="G", chapters=None):
             open_table = None
 
     with pdfplumber.open(pdf_path) as pdf:
-        chapter = find_sbu_chapter(chapters if chapters is not None else list_chapters(pdf), sbu)
-        if chapter is None:
-            return {"error": f"No SBU-{sbu} chapter heading found in this document"}
         start, end, heading = chapter["start_page"], chapter["end_page"], chapter["heading"]
 
         for pnum in range(start, end):
             page = pdf.pages[pnum]
+            page_texts.append({"page": pnum + 1, "text": page.extract_text() or ""})
 
             markers = []
             for line in page.extract_text_lines():
@@ -770,7 +814,8 @@ def extract_section(pdf_path, sbu="G", chapters=None):
 
     return {"order_tables": results, "reference_tables": reference_tables,
             "unclassified_fragments": unclassified_fragments,
-            "chapter_heading": heading, "pages": [start + 1, end]}
+            "chapter_heading": heading, "pages": [start + 1, end],
+            "label": chapter_label(chapter), "text": page_texts}
 
 
 if __name__ == "__main__":

@@ -15,6 +15,19 @@ const comparisonItemsEl = document.getElementById("comparison-items");
 const compareContentEl = document.getElementById("compare-content");
 
 const SBU_NAMES = { G: "Generation", T: "Transmission", D: "Distribution" };
+
+// every extracted section (SBU chapters G/T/D and the other chapters, C<n>),
+// in the order they appear in the document
+function sectionKeys(doc) {
+  const secs = (doc && doc.sbus) || {};
+  return Object.keys(secs)
+    .filter(k => secs[k] && !secs[k].error)
+    .sort((a, b) => (secs[a].pages ? secs[a].pages[0] : 0) - (secs[b].pages ? secs[b].pages[0] : 0));
+}
+
+function sectionLabel(key, sec) {
+  return (sec && sec.label) || (SBU_NAMES[key] ? `SBU-${key} ${SBU_NAMES[key]}` : key);
+}
 let currentSbu = "G";
 let docPollTimer = null;
 let awaitingDocId = null;
@@ -41,7 +54,7 @@ async function loadDocList(selectId) {
       el.innerHTML = `
         <div class="name">${escapeHtml(d.filename || d.doc_id)}</div>
         <div class="meta doc-type ${d.doc_type}">${escapeHtml(d.label)}</div>
-        <div class="meta">SBU ${d.sbus_available.join(", ")} · ${d.order_table_count} tables · ${d.needs_review_count} flagged</div>
+        <div class="meta">${d.chapter_count || d.sbus_available.length} chapters · ${d.order_table_count} tables · ${d.needs_review_count} flagged</div>
         ${d.updating ? '<div class="meta">Updating… re-extracting with the latest extraction fixes</div>' : ""}`;
       el.onclick = () => selectDocument(d.doc_id);
     }
@@ -63,7 +76,7 @@ async function selectDocument(docId) {
   currentDocId = docId;
   const data = await fetch(`${API}/${docId}`).then(r => r.json());
   currentDoc = data;
-  const available = Object.keys(data.sbus || {}).filter(s => data.sbus[s] && !data.sbus[s].error);
+  const available = sectionKeys(data);
   if (!available.includes(currentSbu)) currentSbu = available[0] || "G";
   renderDocument();
   await loadDocList(docId);
@@ -91,12 +104,9 @@ function renderDocument() {
     contentEl.innerHTML = '<div class="empty-state">Select a document.</div>';
     return;
   }
-  const tabs = ["G", "T", "D"].map(s => {
-    const sec = currentDoc.sbus && currentDoc.sbus[s];
-    const has = sec && !sec.error;
-    return `<button class="tab ${s === currentSbu ? "active" : ""}" ${has ? `onclick="switchSbu('${s}')"` : "disabled"}
-      title="${has ? "" : escapeHtml(sec ? sec.error : "Not extracted yet - older uploads are being updated in the background")}">SBU-${s} ${SBU_NAMES[s]}</button>`;
-  }).join("");
+  const tabs = sectionKeys(currentDoc).map(s =>
+    `<button class="tab ${s === currentSbu ? "active" : ""}" onclick="switchSbu('${s}')">${escapeHtml(sectionLabel(s, currentDoc.sbus[s]))}</button>`
+  ).join("");
   const d = currentSection();
   let html = `
     <div class="doc-toolbar">
@@ -116,7 +126,13 @@ function renderDocument() {
     </div>
   `;
 
-  html += `<div class="section-heading">Order tables (SBU-${currentSbu} ${SBU_NAMES[currentSbu]})</div>`;
+  if (d.text && d.text.length) {
+    html += `<details class="chapter-text"><summary>Chapter text (${d.text.length} pages)</summary>` +
+      d.text.map(p => `<div class="page-text"><div class="page-no">Page ${p.page}</div><pre>${escapeHtml(p.text)}</pre></div>`).join("") +
+      `</details>`;
+  }
+
+  html += `<div class="section-heading">Order tables (${escapeHtml(sectionLabel(currentSbu, d))})</div>`;
   if (d.order_tables.length === 0) {
     html += `<div class="empty-state">No order tables found.</div>`;
   } else {
@@ -139,6 +155,14 @@ function renderDocument() {
   attachGridListeners();
 }
 
+function normalizeTableRow(row, targetLength) {
+  const cells = Array.isArray(row) ? [...row] : [];
+  if (!targetLength) return cells;
+  while (cells.length < targetLength) cells.push("");
+  if (cells.length > targetLength) cells.length = targetLength;
+  return cells;
+}
+
 function renderTableCard(t, bucket, index, isFragment) {
   const badge = t.table_no ? `Table ${escapeHtml(t.table_no)}` : "Unlabeled";
   const title = t.title || "(no title detected)";
@@ -147,17 +171,19 @@ function renderTableCard(t, bucket, index, isFragment) {
   if (t.needs_review) flags.push(`<span class="flag review">Needs manual review</span>`);
   if (t.reviewed) flags.push(`<span class="flag reviewed">Reviewed</span>`);
 
-  const headerRow = t.header || [];
+  const headerRow = normalizeTableRow(t.header || [], Math.max(t.header?.length || 0, ...((t.data_rows || []).map(r => (Array.isArray(r) ? r.length : 0))), ...((t.unit_row || []).length ? [t.unit_row.length] : [])));
+  const unitRow = normalizeTableRow(t.unit_row || [], headerRow.length);
+  const dataRows = (t.data_rows || []).map(row => normalizeTableRow(row, headerRow.length));
   let gridHtml = `<table class="data-grid" data-bucket="${bucket}" data-index="${index}"><thead><tr>`;
   headerRow.forEach(c => { gridHtml += `<th>${escapeHtml(c || "")}</th>`; });
   gridHtml += `</tr>`;
-  if (t.unit_row) {
+  if (unitRow.some(c => c !== "" && c !== null && c !== undefined)) {
     gridHtml += `<tr class="unit-row">`;
-    t.unit_row.forEach(c => { gridHtml += `<td>${escapeHtml(c || "")}</td>`; });
+    unitRow.forEach(c => { gridHtml += `<td>${escapeHtml(c || "")}</td>`; });
     gridHtml += `</tr>`;
   }
   gridHtml += `</thead><tbody>`;
-  (t.data_rows || []).forEach((row, ri) => {
+  dataRows.forEach((row, ri) => {
     const mismatch = headerRow.length && row.length !== headerRow.length;
     gridHtml += `<tr data-row="${ri}" class="${mismatch ? "row-mismatch" : ""}">`;
     row.forEach(c => { gridHtml += `<td contenteditable="true">${escapeHtml(c || "")}</td>`; });
@@ -195,11 +221,12 @@ function attachGridListeners() {
 async function saveGrid(gridEl) {
   const bucket = gridEl.dataset.bucket;
   const index = parseInt(gridEl.dataset.index, 10);
+  const targetLength = gridEl.querySelectorAll("thead th").length || 0;
   const rows = [];
   gridEl.querySelectorAll("tbody tr").forEach(tr => {
     const row = [];
     tr.querySelectorAll("td").forEach(td => row.push(td.textContent));
-    rows.push(row);
+    rows.push(normalizeTableRow(row, targetLength));
   });
   await fetch(`${API}/${currentDocId}/${bucket}/${index}?sbu=${currentSbu}`, {
     method: "PATCH",

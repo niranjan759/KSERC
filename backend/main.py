@@ -6,7 +6,6 @@ from fastapi import BackgroundTasks, FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from extraction.compare import to_float
 from extraction.extract_sbu_g import SBU_NAMES
 import comparison
 import ingest
@@ -150,23 +149,86 @@ async def update_comparison_field(comparison_id: str, index: int, update: dict):
     field = fields[index]
     if "arr_approved" in update:
         field["arr_approved"] = update["arr_approved"]
+        has_value = str(update["arr_approved"] or "").strip() != ""
+        # a figure typed in for a line the ARR doesn't carry (or that is new
+        # this year) replaces the "no ARR line" note; clearing it restores it
+        if has_value and field.get("note"):
+            field["note_original"], field["note"], field["arr_manual"] = field["note"], None, True
+        elif has_value and field.get("new_in_petition") and not field.get("arr_pages"):
+            field["arr_manual"] = True
+            field["needs_review"] = False
+            field["lookup_problem"] = None
+        elif not has_value and field.get("arr_manual"):
+            field["arr_manual"] = False
+            field["note"] = field.pop("note_original", None)
     if "petition_claimed" in update:
         field["petition_claimed"] = update["petition_claimed"]
+        has_claim = str(update["petition_claimed"] or "").strip() != ""
+        # same idea as arr_approved above: a figure the reviewer found near
+        # the missing one replaces the "no separate claim" note
+        if has_claim and field.get("claim_note"):
+            field["claim_note_original"], field["claim_note"], field["claim_manual"] = field["claim_note"], None, True
+        elif not has_claim and field.get("claim_manual"):
+            field["claim_manual"] = False
+            field["claim_note"] = field.pop("claim_note_original", None)
     if "reviewed" in update:
         field["reviewed"] = bool(update["reviewed"])
 
     if "arr_approved" in update or "petition_claimed" in update:
-        approved = to_float(field["arr_approved"])
-        claimed = to_float(field["petition_claimed"])
-        if approved is not None and claimed is not None:
-            field["deviation_abs"] = round(claimed - approved, 2)
-            field["deviation_pct"] = round(field["deviation_abs"] / abs(approved) * 100, 2) if approved != 0 else None
-        else:
-            field["deviation_abs"] = None
-            field["deviation_pct"] = None
+        comparison.compute_deviation(field)
 
     comparison.save_comparison(comparison_id, data)
     return field
+
+
+@app.get("/api/comparisons/{comparison_id}/fields/{index}/nearby")
+def field_nearby(comparison_id: str, index: int, side: str = "arr"):
+    if side not in ("arr", "petition"):
+        raise HTTPException(400, "side must be arr or petition")
+    data = comparison.load_comparison(comparison_id)
+    if data is None:
+        raise HTTPException(404, "Comparison not found")
+    if index < 0 or index >= len(data["fields"]):
+        raise HTTPException(404, "Field not found")
+    data = comparison.ensure_refs(comparison_id, data)
+    return comparison.nearby(data, index, side)
+
+
+@app.get("/api/comparisons/{comparison_id}/candidates")
+def comparison_candidates(comparison_id: str, q: str = ""):
+    data = comparison.load_comparison(comparison_id)
+    if data is None:
+        raise HTTPException(404, "Comparison not found")
+    return comparison.petition_candidates(data, q)
+
+
+@app.post("/api/comparisons/{comparison_id}/fields")
+async def add_comparison_field(comparison_id: str, body: dict):
+    data = comparison.load_comparison(comparison_id)
+    if data is None:
+        raise HTTPException(404, "Comparison not found")
+    field = comparison.add_field(data, body)
+    if "error" in field:
+        raise HTTPException(422, field["error"])
+    comparison.save_comparison(comparison_id, data)
+    return field
+
+
+@app.delete("/api/comparisons/{comparison_id}/fields/{index}")
+def remove_comparison_field(comparison_id: str, index: int):
+    """Dismiss a line the reviewer decides doesn't belong. Only lines that
+    were new in the petition can be removed; the mapped ones are the
+    comparison's own fields."""
+    data = comparison.load_comparison(comparison_id)
+    if data is None:
+        raise HTTPException(404, "Comparison not found")
+    if index < 0 or index >= len(data["fields"]):
+        raise HTTPException(404, "Field not found")
+    if not data["fields"][index].get("new_in_petition"):
+        raise HTTPException(400, "Only new petition lines can be removed")
+    removed = data["fields"].pop(index)
+    comparison.save_comparison(comparison_id, data)
+    return {"removed": removed["field_label"]}
 
 
 @app.patch("/api/comparisons/{comparison_id}/settings")

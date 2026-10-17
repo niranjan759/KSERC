@@ -6,9 +6,10 @@ from pathlib import Path
 import doc_meta
 import storage
 from extraction.schema_discovery import discover_schema
-from extraction.arr_budget import ARR_FIELD_MAPS, extract_arr_budget
-from extraction.petition_claims import PETITION_TABLES_BY_SBU, match_schema_to_petition, new_petition_lines
+from extraction.arr_budget import ARR_FIELD_MAPS, extract_arr_budget, label_key
+from extraction.petition_claims import PETITION_ALIASES_BY_SBU, PETITION_TABLES_BY_SBU, match_schema_to_petition, new_petition_lines
 from extraction.compare import build_comparison, to_float
+from extraction.schema_discovery import find_label, row_has_data, table_unit
 
 COMPARISONS_DIR = Path(__file__).parent / "comparisons"
 COMPARISONS_DIR.mkdir(exist_ok=True)
@@ -252,3 +253,184 @@ def build(tuo_doc_id, arr_doc_id, petition_doc_id, target_year, sbu="G"):
     }
     save_comparison(comparison_id, data)
     return data
+
+
+def compute_deviation(field):
+    """Fill deviation_abs / deviation_pct from the field's two figures.
+    Percentage is against the size of the approval (see compare.build_comparison)."""
+    approved = to_float(field.get("arr_approved"))
+    claimed = to_float(field.get("petition_claimed"))
+    field["deviation_abs"] = None
+    field["deviation_pct"] = None
+    if approved is not None and claimed is not None:
+        field["deviation_abs"] = round(claimed - approved, 2)
+        if approved != 0:
+            field["deviation_pct"] = round(field["deviation_abs"] / abs(approved) * 100, 2)
+    return field
+
+
+def petition_candidates(data, query="", limit=60):
+    """Rows of the petition's extracted tables that aren't a field in this
+    comparison - the pool a reviewer can add a missing line from. Only rows
+    with a label and at least one figure; filtered by a text match on the row
+    label or its table title so the list stays usable on a 100-table chapter."""
+    petition = storage.load_data(data["petition_doc_id"])
+    sec = storage.section(petition, data.get("sbu", "G")) if petition else None
+    if sec is None:
+        return []
+    present = {doc_meta_key(f["field_label"]) for f in data["fields"]}
+    q = (query or "").strip().lower()
+    out = []
+    for ti, t in enumerate(sec["order_tables"]):
+        title = t.get("title") or ""
+        for ri, row in enumerate(t.get("data_rows", [])):
+            label, label_idx, _ = find_label(row)
+            if label is None or not row_has_data(row, label_idx):
+                continue
+            if doc_meta_key(label) in present:
+                continue
+            if q and q not in label.lower() and q not in title.lower():
+                continue
+            header = t.get("header") or []
+            cols = [{"index": ci, "name": (header[ci] if ci < len(header) and header[ci] else f"Column {ci + 1}"),
+                     "value": c}
+                    for ci, c in enumerate(row) if ci > label_idx and c and to_float(c) is not None]
+            out.append({"table_index": ti, "row_index": ri, "table_no": t.get("table_no"), "title": title,
+                        "pages": t.get("pages", []), "label": label, "unit": table_unit(t), "columns": cols})
+            if len(out) >= limit:
+                return out
+    return out
+
+
+def doc_meta_key(label):
+    import re
+    return re.sub(r"[^a-z0-9]+", " ", (label or "").lower().replace("&", "and")).strip()
+
+
+def add_field(data, body):
+    """Add a petition line to the comparison by hand. The reviewer supplies the
+    label, claimed figure (taken from a picked table cell or typed) and,
+    optionally, the approved figure; the line is marked as added by hand so it
+    stays visibly distinct from extracted ones."""
+    label = (body.get("field_label") or "").strip()
+    if not label:
+        return {"error": "A field name is required."}
+    if doc_meta_key(label) in {doc_meta_key(f["field_label"]) for f in data["fields"]}:
+        return {"error": f'"{label}" is already in this comparison.'}
+    field = {
+        "field_label": label,
+        "schema_table_no": body.get("table_no"),
+        "unit": body.get("unit"),
+        "arr_approved": (body.get("arr_approved") or "").strip() or None,
+        "petition_claimed": (body.get("petition_claimed") or "").strip() or None,
+        "deviation_abs": None, "deviation_pct": None,
+        "note": None, "claim_note": None, "lookup_problem": None,
+        "new_in_petition": True, "added_manually": True, "needs_review": False,
+        "arr_pages": [], "petition_pages": body.get("pages") or [],
+        "reviewed": False,
+    }
+    compute_deviation(field)
+    data["fields"].append(field)
+    return field
+
+
+def ensure_refs(comparison_id, data):
+    """Comparisons saved before source references were kept on each row get
+    them filled in by re-running the (cheap, table-only) lookups once."""
+    fields = data.get("fields", [])
+    if not fields or all("arr_table_no" in f for f in fields):
+        return data
+    sbu = data.get("sbu", "G")
+    tuo = storage.section(storage.load_data(data["tuo_doc_id"]) or {}, sbu)
+    arr = storage.section(storage.load_data(data["arr_doc_id"]) or {}, sbu)
+    pet = storage.section(storage.load_data(data["petition_doc_id"]) or {}, sbu)
+    if not (tuo and arr and pet):
+        return data
+    schema = discover_schema(tuo["order_tables"])
+    schema += new_petition_lines(schema, pet["order_tables"], sbu)
+    budget = {b["field_label"]: b for b in extract_arr_budget(schema, arr["order_tables"], data["target_year"], sbu)}
+    claims = {c["field_label"]: c for c in match_schema_to_petition(schema, pet["order_tables"], None, sbu)}
+    for f in fields:
+        f["arr_table_no"] = budget.get(f["field_label"], {}).get("arr_table_no")
+        f["arr_row_label"] = budget.get(f["field_label"], {}).get("arr_row_label")
+        f["petition_table_no"] = claims.get(f["field_label"], {}).get("petition_table_no")
+    save_comparison(comparison_id, data)
+    return data
+
+
+def _find_table(tables, table_no, pages):
+    found = [t for t in tables if t.get("table_no") == table_no]
+    overlapping = [t for t in found if set(t.get("pages", [])) & set(pages or [])]
+    found = overlapping or found
+    return found[0] if found else None
+
+
+def _row_position(table, label, aliases=()):
+    want = {label_key(label)} | {label_key(a) for a in aliases}
+    for ri, row in enumerate(table.get("data_rows", [])):
+        found, _, _ = find_label(row)
+        if found and label_key(found) in want:
+            return ri
+    return None
+
+
+def nearby(data, index, side):
+    """The rows of the source table sitting around where a missing figure
+    should be, for a reviewer to look through and pick from. The field's own
+    position is used when the source has the row (a petition row with a blank
+    claim); otherwise the nearest earlier and later fields in the comparison
+    that DO have a source row mark the stretch it must lie between - the
+    documents list these heads in the same order. `side` is "arr" or
+    "petition"."""
+    fields = data["fields"]
+    sbu = data.get("sbu", "G")
+    doc = storage.load_data(data["arr_doc_id" if side == "arr" else "petition_doc_id"])
+    sec = storage.section(doc, sbu) if doc else None
+    if sec is None:
+        return {"windows": []}
+    tables = sec["order_tables"]
+    groups = PETITION_ALIASES_BY_SBU.get(sbu, [])
+
+    def locate(g):
+        if side == "arr":
+            no, label, pages = g.get("arr_table_no"), g.get("arr_row_label"), g.get("arr_pages")
+        else:
+            no, label, pages = g.get("petition_table_no"), g["field_label"], g.get("petition_pages")
+        if not no or not label:
+            return None
+        table = _find_table(tables, no, pages)
+        if table is None:
+            return None
+        aliases = next((grp for grp in groups if label_key(label) in {label_key(n) for n in grp}), [])
+        pos = _row_position(table, label, aliases)
+        return (table, pos) if pos is not None else None
+
+    anchors = []  # (role, table, row position)
+    own = locate(fields[index])
+    if own:
+        anchors.append(("this", *own))
+    for role, order in (("previous", range(index - 1, -1, -1)), ("next", range(index + 1, len(fields)))):
+        for j in order:
+            hit = locate(fields[j])
+            if hit:
+                anchors.append((role, *hit))
+                break
+
+    if own:
+        # the row itself is there (a blank claim): neighbours in some other
+        # table say nothing about it
+        anchors = [a for a in anchors if a[1] is own[0]]
+
+    windows = []
+    for table in {id(a[1]): a[1] for a in anchors}.values():
+        mine = [(role, pos) for role, t, pos in anchors if t is table]
+        lo, hi = min(p for _, p in mine), max(p for _, p in mine)
+        pad = 1 if len(mine) > 1 else 3
+        lo, hi = max(0, lo - pad), min(len(table["data_rows"]) - 1, hi + pad)
+        roles = {pos: role for role, pos in mine}
+        rows = [{"row_index": ri, "cells": table["data_rows"][ri], "anchor": roles.get(ri)}
+                for ri in range(lo, hi + 1)]
+        windows.append({"table_no": table.get("table_no"), "title": table.get("title"),
+                        "pages": table.get("pages", []), "header": table.get("header") or [],
+                        "unit": table_unit(table), "rows": rows})
+    return {"windows": windows}

@@ -80,6 +80,11 @@ def build_comparison(arr_budget_fields, petition_claim_fields):
             "needs_review": needs_review,
             "arr_pages": (a or {}).get("pages", []),
             "petition_pages": (c or {}).get("pages", []),
+            # where each figure was read from, so a reviewer can look at the
+            # rows around it when a figure is missing (comparison.nearby)
+            "arr_table_no": (a or {}).get("arr_table_no"),
+            "arr_row_label": (a or {}).get("arr_row_label"),
+            "petition_table_no": (c or {}).get("petition_table_no"),
             "reviewed": False,
         })
     return rows

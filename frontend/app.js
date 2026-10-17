@@ -339,6 +339,9 @@ async function loadComparisonList(selectId) {
         ? '<div class="meta invalid">Mismatched documents — results not meaningful</div>'
         : `<div class="meta">${c.field_count} fields · ${c.flagged_count} flagged</div>`}
     `;
+    el.insertAdjacentHTML("afterbegin",
+      `<button class="secondary small comparison-delete" title="Delete this comparison">Delete</button>`);
+    el.querySelector(".comparison-delete").onclick = (e) => { e.stopPropagation(); deleteComparison(c.comparison_id); };
     el.onclick = () => selectComparison(c.comparison_id);
     comparisonItemsEl.appendChild(el);
   });
@@ -509,16 +512,23 @@ function renderComparisonDetail() {
         <td>
           ${f.needs_review ? `<span class="flag review" title="${escapeHtml(f.lookup_problem || "The source table was flagged during extraction, or the value was recovered from a page break - check the source page")}">Needs review</span>` : ""}
           ${f.recovered ? '<span class="flag review" title="Value reconstructed from a page-break recovery, not a normal extraction">Recovered</span>' : ""}
-          ${f.new_in_petition ? '<span class="flag review" title="Claimed in this petition but not a line in last year\'s Truing Up Order - check it by hand">New line</span>' : ""}
+          ${f.added_manually ? '<span class="flag info" title="Added by the reviewer from a petition table">Added by hand</span>' : ""}
+          ${f.new_in_petition && !f.added_manually ? '<span class="flag review" title="Claimed in this petition but not a line in last year\'s Truing Up Order - check it by hand">New line</span>' : ""}
           ${f.claim_note ? `<span class="flag info" title="${escapeHtml(f.claim_note)}">No separate claim</span>` : ""}
           ${f.note ? `<span class="flag info" title="${escapeHtml(f.note)}">No ARR line</span>` : ""}
+          ${f.claim_manual ? '<span class="flag info" title="The claimed figure was picked by the reviewer from a nearby petition row">Claim added by hand</span>' : ""}
+          ${f.arr_manual ? '<span class="flag info" title="The approved figure was entered by the reviewer, not taken from the ARR">ARR added by hand</span>' : ""}
         </td>
         <td class="compare-actions">
           ${f.arr_pages && f.arr_pages.length ? `<button class="secondary" onclick="viewComparisonSource(${i}, 'arr')">ARR p.${f.arr_pages.join(",")}</button>` : ""}
           ${f.petition_pages && f.petition_pages.length ? `<button class="secondary" onclick="viewComparisonSource(${i}, 'petition')">Petition p.${f.petition_pages.join(",")}</button>` : ""}
         </td>
         <td class="compare-actions">
-          <button class="secondary" onclick="toggleFieldReviewed(${i})">${f.reviewed ? "Unmark" : "Reviewed"}</button>
+          <button class="secondary" onclick="toggleFieldReviewed(${i})">${f.reviewed ? "Unmark" : (f.new_in_petition ? "Accept" : "Reviewed")}</button>
+          ${(f.note || (f.new_in_petition && (f.arr_approved == null || f.arr_approved === ""))) ? `<button class="secondary" title="Look at the ARR rows around where this line should be" onclick="showNearby(${i}, 'arr')">Check nearby in ARR</button>` : ""}
+          ${(f.claim_note || f.petition_claimed == null || f.petition_claimed === "") ? `<button class="secondary" title="Look at the petition rows around where this claim should be" onclick="showNearby(${i}, 'petition')">Check nearby in petition</button>` : ""}
+          ${(f.note || (f.new_in_petition && (f.arr_approved == null || f.arr_approved === ""))) ? `<button class="secondary" title="Enter the approved figure for this line" onclick="addArrValue(${i})">Add ARR value</button>` : ""}
+          ${f.new_in_petition ? `<button class="secondary" title="Remove this line from the comparison" onclick="removeField(${i})">Remove</button>` : ""}
         </td>
       </tr>
     `;
@@ -568,13 +578,16 @@ async function saveFieldValue(td) {
   renderComparisonDetail();
 }
 
-async function deleteComparison() {
+async function deleteComparison(id = currentComparisonId) {
   if (!confirm("Delete this comparison? Reviewed flags and edited values in it will be lost.")) return;
-  await fetch(`${COMPARE_API}/${currentComparisonId}`, { method: "DELETE" });
-  currentComparisonId = null;
-  currentComparison = null;
-  renderComparisonDetail();
-  await loadComparisonList();
+  const res = await fetch(`${COMPARE_API}/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) { alert("Couldn't delete the comparison."); return; }
+  if (id === currentComparisonId) {
+    currentComparisonId = null;
+    currentComparison = null;
+    renderComparisonDetail();
+  }
+  await loadComparisonList(currentComparisonId);
 }
 
 async function toggleFieldReviewed(index) {
@@ -607,3 +620,97 @@ function viewComparisonSource(index, side) {
 }
 
 loadDocList();
+
+async function addArrValue(index) {
+  const f = currentComparison.fields[index];
+  const value = prompt(`Approved figure for "${f.field_label}"${f.unit ? " (" + f.unit + ")" : ""}.
+Enter it as the ARR or order prints it:`);
+  if (value === null || value.trim() === "") return;
+  const res = await fetch(`${COMPARE_API}/${currentComparisonId}/fields/${index}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ arr_approved: value.trim() })
+  });
+  currentComparison.fields[index] = await res.json();
+  renderComparisonDetail();
+}
+
+async function removeField(index) {
+  const f = currentComparison.fields[index];
+  if (!confirm(`Remove "${f.field_label}" from this comparison?`)) return;
+  const res = await fetch(`${COMPARE_API}/${currentComparisonId}/fields/${index}`, { method: "DELETE" });
+  if (!res.ok) return;
+  currentComparison.fields.splice(index, 1);
+  renderComparisonDetail();
+  await loadComparisonList(currentComparisonId);
+}
+
+// --- Look at the source rows around a missing figure ---
+
+let nearbyState = null;
+
+async function showNearby(index, side) {
+  const f = currentComparison.fields[index];
+  const docId = side === "arr" ? currentComparison.arr_doc_id : currentComparison.petition_doc_id;
+  const panel = document.getElementById("source-panel");
+  const title = document.getElementById("source-panel-title");
+  const body = document.getElementById("source-panel-body");
+  title.textContent = `${side === "arr" ? "ARR" : "Petition"} rows near "${f.field_label}"`;
+  body.innerHTML = '<div class="meta">Looking…</div>';
+  panel.classList.add("open");
+  const data = await fetch(`${COMPARE_API}/${currentComparisonId}/fields/${index}/nearby?side=${side}`).then(r => r.json());
+  nearbyState = { index, side, docId, data };
+  if (!data.windows.length) {
+    body.innerHTML = '<div class="meta">No nearby rows could be located - neither this line nor the lines either side of it have a source row in this document. Use "View source page" instead.</div>';
+    return;
+  }
+  const what = side === "arr" ? "approved" : "claimed";
+  body.innerHTML = `<p class="hint">The line is listed between the highlighted rows in the document. Click a figure to use it as the ${what} value for <b>${escapeHtml(f.field_label)}</b>.</p>` +
+    data.windows.map((w, wi) => {
+      const head = w.header.map(h => `<th>${escapeHtml(h || "")}</th>`).join("");
+      const isNum = c => c && /^[+-]?[\d,]+(\.\d+)?$/.test(String(c).replace(/\s/g, ""));
+      const rows = w.rows.map((r, ri) => `<tr class="${r.anchor ? "anchor-" + r.anchor : ""}">` +
+        r.cells.map((c, ci) => {
+          // only figures to the right of the row's label can be picked; the serial number can't
+          const labelAt = r.cells.findIndex(x => x && String(x).trim() && !isNum(x));
+          const num = isNum(c) && ci > labelAt && labelAt >= 0;
+          
+          return num ? `<td class="pick" title="Use as ${what} value" onclick="useNearbyValue(${wi}, ${ri}, ${ci})">${escapeHtml(c)}</td>`
+                     : `<td>${escapeHtml(c || "")}</td>`;
+        }).join("") +
+        `<td class="role">${r.anchor ? escapeHtml(r.anchor === "this" ? "this line" : r.anchor + " line") : ""}</td></tr>`).join("");
+      return `<div class="nearby-table"><div class="nearby-title">${w.table_no ? "Table " + escapeHtml(w.table_no) + " · " : ""}${escapeHtml(w.title || "")}
+          <button class="secondary" onclick="showNearbyPages(${wi})">View page ${w.pages.join(", ")}</button></div>
+        <div class="grid-wrap"><table class="data-grid"><thead><tr>${head}<th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    }).join("");
+}
+
+function showNearbyPages(wi) {
+  const w = nearbyState.data.windows[wi];
+  const body = document.getElementById("source-panel-body");
+  body.innerHTML = '<button class="secondary" onclick="showNearby(' + nearbyState.index + ", '" + nearbyState.side + "')\">Back to nearby rows</button>";
+  w.pages.forEach(p => {
+    const img = document.createElement("img");
+    img.src = `${API}/${nearbyState.docId}/page/${p}.png`;
+    img.alt = `Page ${p}`;
+    body.appendChild(img);
+  });
+}
+
+async function useNearbyValue(wi, ri, ci) {
+  const { index, side, data } = nearbyState;
+  const f = currentComparison.fields[index];
+  const w = data.windows[wi];
+  const value = String(w.rows[ri].cells[ci]).trim();
+  const column = (w.header[ci] || "").trim();
+  const what = side === "arr" ? "approved" : "claimed";
+  if (!confirm(`Use ${value}${column ? " (column: " + column + ")" : ""} as the ${what} value for "${f.field_label}"?`)) return;
+  const res = await fetch(`${COMPARE_API}/${currentComparisonId}/fields/${index}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ [side === "arr" ? "arr_approved" : "petition_claimed"]: value })
+  });
+  currentComparison.fields[index] = await res.json();
+  closeSourcePanel();
+  renderComparisonDetail();
+}

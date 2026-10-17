@@ -1,7 +1,8 @@
+import fitz  # PyMuPDF: reads sideways text in its true order (see _rotated_lines)
 import pdfplumber, re
 
 UNIT_PAT = re.compile(r'^\(?(Rs\.?\s*(Cr|Crore|Lakh)?|MU|kWh|Rs/kWh|Rs\.?/unit|%|MW|Nos?\.?)\)?\.?$', re.I)
-ANNEXURE_PAT = re.compile(r'^\s*ANNEXURES?.{0,60}$', re.I)
+ANNEXURE_PAT = re.compile(r'^\s*ANNEXURES?\b.{0,60}$', re.I)
 CHAPTER_PAT = re.compile(r'^\s*CHAPTER\s*[–—-]?\s*(\d+)\s*[:–—-]?\s*(.*)$', re.I)
 
 # Matches every table-numbering convention seen so far:
@@ -27,6 +28,37 @@ TABLE_MARKER_PAT = re.compile(
 )
 
 
+# "Appendix 1A : Details of capital liabilities (2024-25)-SBU G", "Appendix-2 :",
+# "Appendix 4 B : ...", "(Contd) Appendix 3- ...". The number (and optional
+# letter) must be followed by a separator or the end of the line, so a
+# narrative sentence that merely starts "Appendix 1 gives ..." isn't taken for
+# a title. Appendix tables are numbered "App-<n>" and kept in their own bucket.
+APPENDIX_PAT = re.compile(
+    r'^[\s"“‘\'”’]*(?:\(contd\)\s*)?Appendix\s*[-–—]?\s*(\d+)\s*([A-Za-z](?![A-Za-z]))?\s*(?:[:\-–—.]\s*(.*)|$)',
+    re.I
+)
+
+
+class _AppendixMarker:
+    """Looks like the TABLE_MARKER_PAT match (group 1 = prefix, 2 = number,
+    3 = trailing title) so every place that reads a marker line takes an
+    appendix title the same way."""
+    def __init__(self, m):
+        self._g = ("APP", m.group(1) + (m.group(2) or "").upper(), (m.group(3) or "").strip())
+
+    def group(self, i):
+        return self._g[i - 1]
+
+
+def match_marker(text):
+    """A "Table N" or "Appendix N" title line, or None."""
+    m = TABLE_MARKER_PAT.match(text)
+    if m:
+        return m
+    a = APPENDIX_PAT.match(text)
+    return _AppendixMarker(a) if a else None
+
+
 def is_unit_header_row(row):
     non_empty = [c for c in row if c and str(c).strip()]
     if not non_empty:
@@ -48,10 +80,15 @@ PARA_NUM_PAT = re.compile(r'^\d+\.\d+(?:\.\d+)?\s')
 CLAUSE_NUM_ONLY_PAT = re.compile(r'^\d+\.\d+(?:\.\d+)?$')
 
 
+CODE_HEADING_PAT = re.compile(r'^\d+\.\d+\s*[-–—]\s*\S')
+
+
 def is_prose_row(row):
     non_empty = [str(c).strip() for c in row if c and str(c).strip()]
     if len(non_empty) == 1:
-        return bool(PARA_NUM_PAT.match(non_empty[0]))
+        # "14.01 - TRANSMISSION SCHEMES" is a project code heading (Petition
+        # 2024-25 Appendix 4G), not a clause - clauses are followed by words
+        return bool(PARA_NUM_PAT.match(non_empty[0])) and not CODE_HEADING_PAT.match(non_empty[0])
     if len(non_empty) == 2:
         return bool(CLAUSE_NUM_ONLY_PAT.match(non_empty[0]))
     # A paragraph that pdfplumber split across several cells: a clause
@@ -176,6 +213,51 @@ def fix_overflow_cells(page, table, rows):
     return rows
 
 
+def _rotated_lines(fpage):
+    """Lines of text not running left to right, as PyMuPDF reads them (it
+    keeps each line in its own reading order, which pdfplumber's cell text
+    doesn't: a column heading printed sideways comes out reversed -
+    "dnaL sgnidliuB" for "Building Land")."""
+    out = []
+    for block in fpage.get_text("dict")["blocks"]:
+        for line in block.get("lines", []):
+            d = tuple(round(v) for v in line["dir"])
+            text = "".join(s["text"] for s in line["spans"]).strip()
+            if d == (1, 0) or not text:
+                continue
+            x0, y0, x1, y1 = line["bbox"]
+            out.append({"cx": (x0 + x1) / 2, "cy": (y0 + y1) / 2, "dir": d, "text": text})
+    return out
+
+
+def fix_rotated_cells(table, raw, rotated):
+    """Replace the text of cells holding sideways text with PyMuPDF's reading
+    of it. A cell is only replaced when the two readings contain exactly the
+    same characters - only the order differs - so a cell where the two
+    disagree about WHAT is written stays as pdfplumber read it."""
+    if not rotated:
+        return raw
+    rows = [list(r) for r in raw]
+    for ri, trow in enumerate(table.rows):
+        if ri >= len(rows):
+            break
+        for ci, bbox in enumerate(trow.cells):
+            if bbox is None or ci >= len(rows[ri]) or not rows[ri][ci]:
+                continue
+            x0, top, x1, bottom = bbox
+            inside = [l for l in rotated if x0 <= l["cx"] <= x1 and top <= l["cy"] <= bottom]
+            if not inside:
+                continue
+            # a sideways paragraph's lines stack across the cell: left to
+            # right when it reads upward, right to left when it reads downward
+            upward = inside[0]["dir"] == (0, -1)
+            inside.sort(key=lambda l: l["cx"] if upward else -l["cx"])
+            fixed = " ".join(l["text"] for l in inside)
+            if sorted(re.sub(r"\W", "", fixed)) == sorted(re.sub(r"\W", "", rows[ri][ci])):
+                rows[ri][ci] = fixed
+    return rows
+
+
 def join_cell(cell):
     if cell is None:
         return None
@@ -269,10 +351,12 @@ def row_as_marker(row):
     non_empty = [c for c in row if c and str(c).strip()]
     if len(non_empty) != 1:
         return None
-    return TABLE_MARKER_PAT.match(non_empty[0].strip())
+    return match_marker(non_empty[0].strip())
 
 
 def _looks_like_marker(prefix, num):
+    if prefix == "APP":
+        return f"App-{num}", False
     return f"{prefix}{num}", bool(re.match(r'^\d+\.\d+$', num)) or bool(prefix and prefix.upper() != 'V')
 
 
@@ -495,7 +579,7 @@ def collect_orphan_continuation_rows(page, open_table, tables, pnum):
         if first_table.bbox[1] - line["bottom"] > 20:
             continue
         text = line["text"].strip()
-        if not text or TABLE_MARKER_PAT.match(text) or CHAPTER_PAT.match(text):
+        if not text or match_marker(text) or CHAPTER_PAT.match(text):
             continue
         # a paragraph's first line ("6.267 The Non-Tariff income claimed by
         # KSEB Ltd ...") sitting just above a table isn't a table row. Judged
@@ -546,6 +630,96 @@ def chapter_label(chapter):
     return f"Annexures" if n == "A" else f"Ch.{n} {h.title()}"
 
 
+ABBREVIATION_END = re.compile(r'(?<![A-Za-z])(?:Rs|No|Nos|Sl|Dr|Sri|Smt|viz|i\.e|e\.g)\.$')
+CLAUSE_START = re.compile(r'^\d{1,2}\.\d{1,3}(?:\.\d+)?\s')
+
+
+def _body_lines(page, tables):
+    """The page's running text as (top, text, right edge): everything outside
+    the tables, minus page numbers, the "Table N" title lines sitting above a
+    table (the table keeps its own title), and loose table rows that fell
+    outside every table box (three or more figures on one line)."""
+    boxes = [t.bbox for t in tables]
+
+    def outside(obj):
+        if obj.get("object_type") != "char":
+            return True
+        return not any(b[0] - 1 <= obj["x0"] and obj["x1"] <= b[2] + 1 and b[1] - 1 <= obj["top"]
+                       and obj["bottom"] <= b[3] + 1 for b in boxes)
+
+    lines = (page.filter(outside) if boxes else page).extract_text_lines()
+    tops = sorted(b[1] for b in boxes)
+    captions = []
+    for l in lines:
+        if match_marker(l["text"].strip()):
+            below = [tp for tp in tops if tp >= l["top"] - 1 and tp - l["top"] < 90]
+            if below:
+                captions.append((l["top"] - 1, below[0]))
+    right = max((l["x1"] for l in lines if len(l["text"]) > 60), default=0) or max((l["x1"] for l in lines), default=0)
+    out = []
+    for l in lines:
+        text = l["text"].strip()
+        if not text or re.fullmatch(r"\d{1,3}", text):
+            continue
+        if any(a <= l["top"] < b for a, b in captions):
+            continue
+        words = text.split()
+        figures = sum(bool(NUMERIC_CELL_PAT.match(w)) for w in words)
+        if figures >= 3 and figures >= len(words) / 2:
+            continue
+        out.append((l["top"], text, l["x1"], right))
+    return out
+
+
+def assemble_blocks(items, where):
+    """A chapter as an ordered list of {"type": "heading" | "para"} text
+    blocks and {"type": "table", "bucket", "index"} references, so a later
+    order can follow this one's layout. Numbered clauses ("2.4 The
+    Commission ...") start paragraphs; a line continues the paragraph above
+    when that line ran to the right margin; a short line with no closing
+    punctuation is a heading."""
+    blocks, buf, prev_full = [], None, False
+
+    def flush():
+        nonlocal buf
+        if buf:
+            blocks.append(buf)
+            buf = None
+
+    for pos, it in enumerate(items):
+        if it[0] == "table":
+            flush()
+            bucket, index = where.get(id(it[1]), (None, None))
+            if bucket:
+                blocks.append({"type": "table", "bucket": bucket, "index": index})
+            prev_full = False
+            continue
+        _, text, x1, right = it
+        full = x1 >= right - 25
+        if CLAUSE_START.match(text):
+            flush()
+            buf = {"type": "para", "text": text}
+        elif buf is not None and buf["text"].endswith("-"):
+            buf["text"] += text  # a word wrapped at its hyphen: "SBU-" / "G of KSEB Ltd"
+        elif buf is not None and ABBREVIATION_END.search(buf["text"]):
+            buf["text"] += " " + text  # a sentence wrapped after "Rs." / "No."
+        elif buf is not None and (prev_full or (not buf["text"].rstrip().endswith((".", ":", ";")) and text[:1].islower())):
+            buf["text"] += " " + text
+        else:
+            flush()
+            following = items[pos + 1] if pos + 1 < len(items) else None
+            # a line whose next line starts in lower case is the top of a
+            # wrapped sentence, not a heading
+            wraps = following is not None and following[0] == "line" and following[1][:1].islower()
+            if len(text) <= 90 and not text.endswith((".", ",", ";", "-")) and not text[:1].islower() and not wraps:
+                blocks.append({"type": "heading", "text": text})
+            else:
+                buf = {"type": "para", "text": text}
+        prev_full = full
+    flush()
+    return blocks
+
+
 def extract_all_sections(pdf_path):
     """Every chapter of the document, from a single chapter scan. SBU
     chapters are keyed "G"/"T"/"D" (what comparisons read); every other
@@ -575,7 +749,9 @@ def extract_section(pdf_path, sbu="G", chapters=None):
 def extract_chapter(pdf_path, chapter):
     results = []
     page_texts = []
+    items = []  # the chapter's text lines and tables in page order (see assemble_blocks)
     reference_tables = []
+    appendix_tables = []
     unclassified_fragments = []
     open_table = None
     open_is_order = True
@@ -592,11 +768,13 @@ def extract_chapter(pdf_path, chapter):
             open_table.pop("_x_span", None)
             if open_table["table_no"] is None:
                 unclassified_fragments.append(open_table)
+            elif open_table["table_no"].startswith("App-"):
+                appendix_tables.append(open_table)
             else:
                 (results if open_is_order else reference_tables).append(open_table)
             open_table = None
 
-    with pdfplumber.open(pdf_path) as pdf:
+    with pdfplumber.open(pdf_path) as pdf, fitz.open(pdf_path) as fdoc:
         start, end, heading = chapter["start_page"], chapter["end_page"], chapter["heading"]
 
         for pnum in range(start, end):
@@ -605,7 +783,7 @@ def extract_chapter(pdf_path, chapter):
 
             markers = []
             for line in page.extract_text_lines():
-                mm = TABLE_MARKER_PAT.match(line["text"].strip())
+                mm = match_marker(line["text"].strip())
                 if mm:
                     prefix, num, trailing = mm.group(1).upper(), mm.group(2), mm.group(3).strip()
                     table_no, is_order = _looks_like_marker(prefix, num)
@@ -619,8 +797,10 @@ def extract_chapter(pdf_path, chapter):
                 if (pnum + 1) not in open_table["pages"]:
                     open_table["pages"].append(pnum + 1)
 
+            rotated = _rotated_lines(fdoc[pnum]) if any(not c.get("upright", True) for c in page.chars) else []
+            page_items = []
             for t in tables:
-                raw = t.extract()
+                raw = fix_rotated_cells(t, t.extract(), rotated)
                 rows = fix_overflow_cells(page, t, [[join_cell(c) for c in r] for r in raw])
                 if not rows:
                     continue
@@ -674,7 +854,12 @@ def extract_chapter(pdf_path, chapter):
                         marker_no, m_is_order, trailing_title = seg_markers[seg_idx]
                         marker_is_explicit = True
                     else:
-                        candidates = [m for m in markers if m[0] < table_top]
+                        # an appendix title is often drawn a point or two INSIDE the
+                        # table's top edge (Appendix 4G, Petition 2024-25 p.244), so it
+                        # gets a few points of tolerance; "Table N" titles keep the
+                        # strict rule they have always had
+                        candidates = [m for m in markers
+                                      if m[0] < table_top + (6 if m[1] and m[1].startswith("App-") else 0)]
                         if candidates:
                             m_top, marker_no, m_is_order, trailing_title = max(candidates, key=lambda m: m[0])
                         else:
@@ -775,7 +960,7 @@ def extract_chapter(pdf_path, chapter):
                     if not title and marker_no:
                         lines_all = page.extract_text_lines()
                         for i, l in enumerate(lines_all):
-                            mm2 = TABLE_MARKER_PAT.match(l["text"].strip())
+                            mm2 = match_marker(l["text"].strip())
                             if mm2:
                                 p2, n2, tr2 = mm2.group(1).upper(), mm2.group(2), mm2.group(3).strip()
                                 t2, _ = _looks_like_marker(p2, n2)
@@ -801,6 +986,11 @@ def extract_chapter(pdf_path, chapter):
                     open_is_order = bool(m_is_order) if marker_no else True
                     if marker_no is not None:
                         used_table_numbers.add(marker_no)
+                    page_items.append((t.bbox[1], 0, ("table", open_table)))
+
+            for top, text, x1, right in _body_lines(page, tables):
+                page_items.append((top, 1, ("line", text, x1, right)))
+            items.extend(it for _, _, it in sorted(page_items, key=lambda x: (x[0], x[1])))
 
         close_open()
 
@@ -808,11 +998,19 @@ def extract_chapter(pdf_path, chapter):
         hlen = len(t["header"])
         return any(r for r in t["data_rows"] if len(r) != hlen)
 
-    for bucket in (results, reference_tables, unclassified_fragments):
+    for bucket in (results, reference_tables, appendix_tables, unclassified_fragments):
         for t in bucket:
             t["needs_review"] = needs_review(t)
 
+    where = {}
+    for bucket, tables in (("order_tables", results), ("reference_tables", reference_tables),
+                           ("appendix_tables", appendix_tables), ("unclassified_fragments", unclassified_fragments)):
+        for i, t in enumerate(tables):
+            where[id(t)] = (bucket, i)
+
     return {"order_tables": results, "reference_tables": reference_tables,
+            "appendix_tables": appendix_tables,
+            "blocks": assemble_blocks(items, where),
             "unclassified_fragments": unclassified_fragments,
             "chapter_heading": heading, "pages": [start + 1, end],
             "label": chapter_label(chapter), "text": page_texts}

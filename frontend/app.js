@@ -9,6 +9,7 @@ const contentEl = document.getElementById("content");
 
 let currentComparison = null;
 let currentComparisonId = null;
+let orderMode = false;
 let allDocsForForm = [];
 
 const comparisonItemsEl = document.getElementById("comparison-items");
@@ -122,6 +123,7 @@ function renderDocument() {
       <b>${escapeHtml(d.chapter_heading || "")}</b><br>
       Source pages ${d.pages ? d.pages[0] + "–" + d.pages[1] : "?"} &middot; ${d.order_tables.length} order tables
       &middot; ${d.reference_tables.length} reference tables excluded
+      ${(d.appendix_tables || []).length ? `&middot; ${d.appendix_tables.length} appendix tables` : ""}
       &middot; ${d.unclassified_fragments.length} unclassified fragments
     </div>
   `;
@@ -137,6 +139,12 @@ function renderDocument() {
     html += `<div class="empty-state">No order tables found.</div>`;
   } else {
     d.order_tables.forEach((t, i) => { html += renderTableCard(t, "order_tables", i, false); });
+  }
+
+  const appendices = d.appendix_tables || [];
+  if (appendices.length > 0) {
+    html += `<div class="section-heading">Appendix tables (supporting schedules the petition attaches - loan lists, project-wise capital expenditure and similar)</div>`;
+    appendices.forEach((t, i) => { html += renderTableCard(t, "appendix_tables", i, false); });
   }
 
   if (d.unclassified_fragments.length > 0) {
@@ -348,6 +356,7 @@ async function loadComparisonList(selectId) {
 }
 
 async function selectComparison(id) {
+  orderMode = false;
   currentComparisonId = id;
   currentComparison = await fetch(`${COMPARE_API}/${id}`).then(r => r.json());
   renderComparisonDetail();
@@ -455,11 +464,13 @@ function renderComparisonDetail() {
     return;
   }
 
+  if (orderMode) { renderOrderDraft(); return; }
   const errors = c.input_errors || [];
   const warnings = c.input_warnings || [];
   let html = `
     <div class="compare-banner">
       <button class="secondary delete-comparison" onclick="deleteComparison()">Delete comparison</button>
+      <button class="delete-comparison" onclick="showOrderDraft()">Draft order</button>
       <b>SBU-${escapeHtml(c.sbu || "G")} ${SBU_NAMES[c.sbu || "G"]} · FY ${escapeHtml(c.target_year)}</b> &middot;
       Schema: ${escapeHtml(c.tuo_filename || c.tuo_doc_id)} &middot;
       ARR: ${escapeHtml(c.arr_filename || c.arr_doc_id)} &middot;
@@ -713,4 +724,86 @@ async function useNearbyValue(wi, ri, ci) {
   currentComparison.fields[index] = await res.json();
   closeSourcePanel();
   renderComparisonDetail();
+}
+
+// --- Draft Truing Up Order: record decisions, download the Word draft ---
+
+function showOrderDraft() { orderMode = true; renderComparisonDetail(); }
+function hideOrderDraft() { orderMode = false; renderComparisonDetail(); }
+
+// a field with a claim defaults to accepting it (matches order_draft.decision_of)
+function decisionOf(f) {
+  if (f.decision) return f.decision;
+  return f.petition_claimed != null && f.petition_claimed !== "" ? "accepted" : "pending";
+}
+
+function effectiveApproved(f) {
+  const d = decisionOf(f);
+  if (d === "accepted") return f.petition_claimed || "";
+  if (d === "disallowed") return "0.00";
+  if (d === "modified") return f.commission_approved || "";
+  return "";
+}
+
+function renderOrderDraft() {
+  const c = currentComparison;
+  const decided = c.fields.filter(f => decisionOf(f) !== "pending").length;
+  const blocked = (c.input_errors || []).length > 0;
+  let html = `
+    <div class="compare-banner">
+      <button class="secondary delete-comparison" onclick="hideOrderDraft()">Back to comparison</button>
+      ${blocked ? "" : `<a class="button-link delete-comparison" title="Every chapter and table, laid out like the previous order" href="${COMPARE_API}/${currentComparisonId}/order.docx">Download full order (Word)</a>
+        <a class="button-link delete-comparison" title="Only this business unit's chapter, as a short summary" href="${COMPARE_API}/${currentComparisonId}/order.docx?scope=chapter">Chapter summary only</a>`}
+      <b>Draft Truing Up Order · SBU-${escapeHtml(c.sbu || "G")} ${SBU_NAMES[c.sbu || "G"]} · FY ${escapeHtml(c.target_year)}</b><br>
+      ${decided} of ${c.fields.length} items decided (items with a claim start as "Accept claim"). The full order follows the previous order's chapters, paragraphs and tables, with these decisions and reasons filled in;
+      carried-over figures, empty cells and anything undecided stay highlighted for the Commission to complete.
+    </div>
+    ${blocked ? '<div class="notice error">The inputs of this comparison were refused, so no order can be drafted from it.</div>' : ""}
+    <table class="compare-grid order-grid">
+      <thead><tr><th>Field</th><th>ARR approved</th><th>KSEB claimed</th><th>Decision</th><th>Approved by Commission</th><th>Reason</th><th></th></tr></thead>
+      <tbody>`;
+  c.fields.forEach((f, i) => {
+    const d = decisionOf(f);
+    const opt = (v, label) => `<option value="${v}" ${d === v ? "selected" : ""}>${label}</option>`;
+    html += `
+      <tr class="${d === "pending" ? "" : "reviewed-row"}" data-index="${i}">
+        <td>${escapeHtml(f.field_label)}${f.unit ? ` <span class="unit">(${escapeHtml(f.unit)})</span>` : ""}</td>
+        <td>${f.note ? "—" : escapeHtml(f.arr_approved ?? "")}</td>
+        <td>${f.claim_note ? "—" : escapeHtml(f.petition_claimed ?? "")}</td>
+        <td><select onchange="saveDecision(${i}, {decision: this.value})">
+          ${opt("pending", "Pending")}${opt("accepted", "Accept claim")}${opt("modified", "Modify")}${opt("disallowed", "Disallow")}
+        </select></td>
+        <td><input type="text" class="approved-input" value="${escapeHtml(effectiveApproved(f))}" ${d === "disallowed" ? "disabled" : ""}
+              placeholder="figure" onchange="saveDecision(${i}, {commission_approved: this.value})"></td>
+        <td><textarea rows="2" placeholder="The Commission's reasoning" onchange="saveDecision(${i}, {reason: this.value})">${escapeHtml(f.reason || "")}</textarea></td>
+        <td class="compare-actions"><button class="secondary" title="Paragraphs of last year's order on this head" onclick="showPrecedent(${i})">Last year</button></td>
+      </tr>`;
+  });
+  html += `</tbody></table>`;
+  compareContentEl.innerHTML = html;
+}
+
+async function saveDecision(index, update) {
+  const res = await fetch(`${COMPARE_API}/${currentComparisonId}/fields/${index}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update)
+  });
+  if (!res.ok) { alert("Couldn't save that decision."); return; }
+  currentComparison.fields[index] = await res.json();
+  renderOrderDraft();
+}
+
+async function showPrecedent(index) {
+  const f = currentComparison.fields[index];
+  const panel = document.getElementById("source-panel");
+  document.getElementById("source-panel-title").textContent = `Last year's order on "${f.field_label}"`;
+  const body = document.getElementById("source-panel-body");
+  body.innerHTML = '<div class="meta">Looking…</div>';
+  panel.classList.add("open");
+  const hits = await fetch(`${COMPARE_API}/${currentComparisonId}/fields/${index}/precedent`).then(r => r.json());
+  body.innerHTML = hits.length
+    ? '<p class="hint">Paragraphs from the previous Truing Up Order that discuss this head. For reference only - nothing here is copied into the draft.</p>' +
+      hits.map(h => `<div class="page-text"><div class="page-no">Page ${h.page}</div><pre>${escapeHtml(h.text)}</pre></div>`).join("")
+    : '<div class="meta">No paragraph in the previous order clearly discusses this head.</div>';
 }

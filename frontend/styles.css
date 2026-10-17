@@ -489,3 +489,11 @@ table.data-grid td.role { color: #888; font-size: 12px; white-space: nowrap; }
 
 .comparison-item { position: relative; }
 .comparison-item .comparison-delete { float: right; margin: 0 0 4px 6px; font-size: 11px; padding: 2px 6px; }
+
+.button-link { display: inline-block; background: var(--accent, #1a56db); color: #fff; text-decoration: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; margin-left: 6px; }
+table.order-grid td textarea { width: 100%; min-width: 220px; box-sizing: border-box; font: inherit; font-size: 13px; }
+table.order-grid td select, table.order-grid td input.approved-input { font: inherit; font-size: 13px; }
+table.order-grid td input.approved-input { width: 90px; }
+table.order-grid .unit { color: var(--muted, #777); font-weight: 400; }
+.source-page-panel .page-text pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; }
+.source-page-panel .page-no { font-size: 12px; color: #777; margin-top: 10px; }

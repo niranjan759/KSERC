@@ -19,8 +19,12 @@ SBUS = ("G", "T", "D")
 #       duplicate tables dropped
 #   3 - every chapter extracted, not just the SBU ones (keys "C<n>" / "CA")
 #   4 - each section also carries its chapter's page text ("text")
-EXTRACTION_VERSION = 4
-SECTION_KEYS = ("order_tables", "reference_tables", "unclassified_fragments", "chapter_heading", "pages", "text")
+#   5 - "Appendix N" tables kept in their own bucket instead of unnamed
+#       fragments; sideways column headings read in the right order
+#   6 - each section also carries its chapter laid out in order ("blocks":
+#       headings, numbered paragraphs, table references), for drafting an order
+EXTRACTION_VERSION = 6
+SECTION_KEYS = ("order_tables", "reference_tables", "unclassified_fragments", "appendix_tables", "blocks", "chapter_heading", "pages", "text")
 
 
 def new_doc_id():

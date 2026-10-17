@@ -7,7 +7,7 @@ import threading
 import storage
 from extraction.extract_sbu_g import extract_all_sections
 
-BUCKETS = ("order_tables", "reference_tables", "unclassified_fragments")
+BUCKETS = ("order_tables", "reference_tables", "appendix_tables", "unclassified_fragments")
 
 EXTRACTION_VERSION = storage.EXTRACTION_VERSION
 NOT_REGULATORY = ("No SBU chapter was found - this doesn't look like a KSERC Truing Up Order, "

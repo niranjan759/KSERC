@@ -338,7 +338,7 @@ def ensure_refs(comparison_id, data):
     """Comparisons saved before source references were kept on each row get
     them filled in by re-running the (cheap, table-only) lookups once."""
     fields = data.get("fields", [])
-    if not fields or all("arr_table_no" in f for f in fields):
+    if not fields or all("arr_table_no" in f and "petition_actuals" in f for f in fields):
         return data
     sbu = data.get("sbu", "G")
     tuo = storage.section(storage.load_data(data["tuo_doc_id"]) or {}, sbu)
@@ -354,6 +354,7 @@ def ensure_refs(comparison_id, data):
         f["arr_table_no"] = budget.get(f["field_label"], {}).get("arr_table_no")
         f["arr_row_label"] = budget.get(f["field_label"], {}).get("arr_row_label")
         f["petition_table_no"] = claims.get(f["field_label"], {}).get("petition_table_no")
+        f["petition_actuals"] = claims.get(f["field_label"], {}).get("actuals")
     save_comparison(comparison_id, data)
     return data
 

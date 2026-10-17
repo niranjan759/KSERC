@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from extraction.extract_sbu_g import SBU_NAMES
 import comparison
+import order_draft
 import ingest
 import storage
 
@@ -65,7 +66,7 @@ def delete_document(doc_id: str):
 
 @app.patch("/api/documents/{doc_id}/{bucket}/{index}")
 async def update_table(doc_id: str, bucket: str, index: int, update: dict, sbu: str = "G"):
-    if bucket not in ("order_tables", "reference_tables", "unclassified_fragments"):
+    if bucket not in ("order_tables", "reference_tables", "appendix_tables", "unclassified_fragments"):
         raise HTTPException(400, "Invalid bucket")
     data = storage.load_data(doc_id)
     if data is None:
@@ -177,8 +178,52 @@ async def update_comparison_field(comparison_id: str, index: int, update: dict):
     if "arr_approved" in update or "petition_claimed" in update:
         comparison.compute_deviation(field)
 
+    if any(k in update for k in ("decision", "commission_approved", "reason")):
+        try:
+            order_draft.apply_decision(field, update)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
     comparison.save_comparison(comparison_id, data)
     return field
+
+
+@app.get("/api/comparisons/{comparison_id}/fields/{index}/precedent")
+def field_precedent(comparison_id: str, index: int):
+    data = comparison.load_comparison(comparison_id)
+    if data is None:
+        raise HTTPException(404, "Comparison not found")
+    if index < 0 or index >= len(data["fields"]):
+        raise HTTPException(404, "Field not found")
+    return order_draft.precedent(data, index)
+
+
+@app.get("/api/comparisons/{comparison_id}/order.docx")
+def download_order_draft(comparison_id: str, scope: str = "full"):
+    """scope=full: the whole order laid out like the previous one;
+    scope=chapter: just this comparison's SBU chapter, as a short summary."""
+    data = comparison.load_comparison(comparison_id)
+    if data is None:
+        raise HTTPException(404, "Comparison not found")
+    if data.get("input_errors"):
+        raise HTTPException(422, "This comparison's inputs were refused; no order can be drafted from it.")
+    suffix = "DRAFT" if scope == "full" else "CHAPTER_DRAFT"
+    name = f"Truing_Up_Order_{data['target_year']}_{suffix}.docx" if scope == "full" else         f"Truing_Up_Order_SBU-{data.get('sbu', 'G')}_{data['target_year']}_{suffix}.docx"
+    try:
+        if scope == "full":
+            data = comparison.ensure_refs(comparison_id, data)  # fills in the petition's actuals on older comparisons
+            content = order_draft.build_full_docx(data)
+        else:
+            content = order_draft.build_docx(data)
+    except ModuleNotFoundError as e:
+        raise HTTPException(503, f"The Word export needs the '{e.name}' package. "
+                                 f"Install it with: pip install -r backend/requirements.txt")
+    except LookupError as e:
+        raise HTTPException(409, str(e))
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.get("/api/comparisons/{comparison_id}/fields/{index}/nearby")

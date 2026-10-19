@@ -1,0 +1,1598 @@
+================================================================================
+ KSERC TRUING-UP DECISION-SUPPORT SYSTEM
+ Project context: what it is, how it works, what it's built with
+ (updated 2026-10-19, reflects the code at commit db58b97 on GitHub)
+================================================================================
+
+HOW TO USE THIS FILE
+  PART A (sections 1-20) - the overview:
+    Read sections 1-4 to understand the problem and the idea.
+    Read sections 5-12 to understand how the system works inside.
+    Sections 13-17 cover results, testing, limits and what's next.
+    Section 18 is a suggested presentation outline; section 19 is a
+    glossary; section 20 lists questions you are likely to be asked.
+  PART B (sections B1-B15) - the detailed reference: every step from upload
+    to dashboard, every extraction rule, every compared field and where its
+    numbers come from, the stored data formats, and the full list of
+    problems found and fixed. Use it to answer "how exactly does X work?".
+
+
+--------------------------------------------------------------------------------
+1. THE PROJECT IN ONE PARAGRAPH
+--------------------------------------------------------------------------------
+Every year, KSEB Ltd (Kerala's state electricity utility) files a "truing-up
+petition" with the Kerala State Electricity Regulatory Commission (KSERC),
+claiming what it actually spent in a financial year. KSERC checks those claims
+against the budget it approved in advance (the ARR order) and issues a "Truing
+Up Order" with the figures it finally allows. These documents are long PDFs
+(150-500 pages) full of numbered tables. Today, staff compare them by hand.
+
+This project is a Human-in-the-Loop (HITL) decision-support web application.
+It reads the PDFs, pulls out the tables, finds the figures that matter, puts
+"approved in the ARR" next to "claimed in the petition" for every cost head,
+computes the deviation, and flags what needs attention. The reviewer then
+records the Commission's decision on each cost head (accept the claim,
+modify it, or disallow it, with a reason), and the system drafts this year's
+Truing Up Order as a Word document laid out and typeset like last year's.
+A human reviewer always makes the final decision. It runs fully offline on
+a laptop, with no AI/LLM services and no per-use cost.
+
+
+--------------------------------------------------------------------------------
+2. DOMAIN PRIMER (the regulatory background you need)
+--------------------------------------------------------------------------------
+Who is who
+  - KSERC  - Kerala State Electricity Regulatory Commission. The regulator.
+  - KSEB Ltd / KSEBL - Kerala State Electricity Board Ltd. The utility being
+    regulated.
+
+KSEB is split into three Strategic Business Units (SBUs):
+  - SBU-G  Generation    (power stations: hydro, thermal, solar, wind)
+  - SBU-T  Transmission  (high-voltage lines, substations, SLDC)
+  - SBU-D  Distribution  (supply to consumers; buys power; collects revenue)
+  Money flows between them: SBU-G's net cost is "transferred" to SBU-D as its
+  Cost of Generation, and SBU-T's net cost becomes SBU-D's Cost of Intra-State
+  Transmission. (Our comparison confirms these figures match across units.)
+
+The three document types
+  1. ARR order (Aggregate Revenue Requirement), e.g. "ARR 2022-27"
+     - Issued BEFORE the money is spent, for a 5-year "control period"
+       (2022-23 to 2026-27).
+     - Contains the Commission's approved figure for every cost head, for each
+       year. Think of it as the approved budget / ceiling.
+  2. Truing-up petition, e.g. "2024-25 petition by KSEBL"
+     - Filed by KSEB AFTER the year ends.
+     - States actual (audited) figures and what KSEB asks to be "trued up"
+       to - the "TU Sought" / "True up claim" column. That is the claim.
+  3. Truing Up Order, e.g. "Truing Up Order 2023-24"
+     - Issued by KSERC after examining the petition.
+     - For each cost head: the MYT/ARR-approved figure, KSEB's claim, and the
+       Commission's final approval, with the reasoning in prose.
+
+Typical cost heads (fields) compared
+  O&M expenses (Employee, A&G, R&M), Interest & Finance Charges, Depreciation,
+  Return on Equity, Cost of power purchase, Master Trust contributions and bond
+  repayment, Non-tariff income, Total ARR, Net ARR, Revenue gap.
+
+Units: almost everything is in Rs. Crore (Rs. Cr). 1 crore = 10 million.
+
+
+--------------------------------------------------------------------------------
+3. THE PROBLEM AND THE GOAL
+--------------------------------------------------------------------------------
+Problem
+  - Each review means cross-reading three huge PDFs, each with its own chapter
+    numbering and table naming. One table can split across pages, and the same
+    item is worded differently in different documents and years.
+  - Comparing figures by hand is slow and error-prone.
+
+Goal (four stages)
+  (i)   Learn WHICH fields matter from LAST year's Truing Up Order (it shows
+        what an order needs). This is "schema discovery".
+  (ii)  Pull the ARR-approved figure for each field for the target year.
+  (iii) Pull the claimed figure for each field from THIS year's petition,
+        compare against (ii), compute the deviation, flag significant ones.
+  (iv)  Generate a draft of this year's Truing Up Order from the reviewed
+        data, following the previous order's structure, text, tables and
+        typesetting. (Built: a Word draft - see section B15.)
+
+Principles
+  - Human in the loop: the system assists, it never decides. Every value is
+    editable, every row can be marked "reviewed", and every figure links to
+    the PDF page it came from.
+  - HARD CONSTRAINT: no AI/LLM API calls anywhere. Everything runs locally and
+    offline with open-source libraries, at zero per-use cost. All logic is
+    deterministic and explainable, so every number can be traced to a page.
+  - Accuracy over coverage: a field is only compared once its mapping has been
+    checked by hand against the source documents. A blank or flagged cell is
+    better than a wrong number.
+
+
+--------------------------------------------------------------------------------
+4. THE USER WORKFLOW (as confirmed with the project owner)
+--------------------------------------------------------------------------------
+  1. Upload the PREVIOUS year's Truing Up Order (e.g. 2023-24).
+  2. The system learns the field list (schema) from it.
+  3. Upload the ARR order (5-year approved budget, e.g. 2022-27).
+  4. Upload the CURRENT year's petition (e.g. 2024-25).
+  5. On the Compare page: pick the business unit (G/T/D), the three documents
+     and the target year, then run the comparison.
+     - Dashboard shows, per field: ARR Approved | Petition Claimed |
+       Deviation (Rs. Cr) | Deviation % | Flags | links to source pages.
+     - The claimed value used is "TU Sought" / "True up claim" (what KSEB
+       asks for), not the raw audited actuals.
+  6. Reviewer edits values if needed, marks rows reviewed, adjusts the
+     significance threshold, and fills gaps with the reviewer tools (add an
+     ARR figure the ARR doesn't carry, look at the source rows around a
+     missing figure and pick one, add or remove a petition line by hand).
+  7. "Draft order" page: for each cost head the reviewer records a decision -
+     Pending (the default), Accept claim, Modify (type the approved figure)
+     or Disallow - plus the Commission's reasoning; "Last year" shows how the
+     previous order discussed that head. Heads can be removed from the order
+     (and restored). "Accept all remaining claims" accepts the rest in one
+     confirmed step.
+  8. Download the draft: "Download full order (Word)" (every chapter, laid
+     out like last year's order) or "Chapter summary only".
+
+Documents are always chosen in the dashboard - nothing is hardcoded to a
+particular file or year.
+
+
+--------------------------------------------------------------------------------
+5. CURRENT STATUS (what's built, what's not)
+--------------------------------------------------------------------------------
+BUILT and verified
+  - PDF upload with automatic document-type and year detection.
+  - Table extraction from every chapter of all three document types
+    (SBU-G, SBU-T, SBU-D chapters plus introduction, energy sales, common
+    expenses, consolidated accounts, annexures).
+  - Document review view: all tables, editable cells, "mark reviewed",
+    "view source page" (renders the PDF page as an image), chapter text.
+  - Comparison for ALL THREE business units:
+      SBU-G 25 fields, SBU-T 23 fields (+1 new line in 2024-25),
+      SBU-D 29 fields (+2 new lines in 2024-25).
+    157 figures across G/T/D x FY2023-24/FY2024-25 hand-verified against the
+    PDFs and locked in by an automated test.
+  - Input guard: refuses mismatched documents (e.g. a petition in the ARR
+    slot, wrong year).
+  - Detection of new claim lines that last year's order didn't have.
+  - Automatic re-extraction of stored documents when extraction code improves
+    (current extraction version: 8).
+  - Reviewer tools for gaps: add an ARR figure, "check nearby" source rows,
+    add / remove petition lines.
+  - Decisions per cost head (pending / accepted / modified / disallowed +
+    reason), with last year's paragraphs on the head shown for reference.
+  - Stage (iv): Word drafts of the Truing Up Order - the full order (every
+    chapter, laid out and typeset like last year's) and a chapter summary.
+    Chapter 1's summary table and Chapter 7's consolidated tables are filled
+    by adding up the three units' comparisons. Builds in ~10 seconds.
+  - Automated tests (pytest, 41 tests).
+
+NOT BUILT yet
+  - Mapping of the remaining detail tables (station-wise power purchase,
+    monthly generation, etc.) - currently ~77 fields from roughly 15 of the
+    order's ~136 tables.
+  - The "XAI" explanation layer for deviations (design intent only).
+  - Learning from reviewer corrections (alias registry).
+
+
+--------------------------------------------------------------------------------
+6. TECH STACK
+--------------------------------------------------------------------------------
+Language / runtime
+  - Python 3.14 (backend, extraction engine, tests)
+  - Plain JavaScript, HTML, CSS (frontend - no framework, no build step)
+
+Backend libraries (backend/requirements.txt)
+  - FastAPI 0.136        Web framework for the REST API. Chosen for speed of
+                         development, automatic request validation, and
+                         built-in background tasks.
+  - Uvicorn 0.44         ASGI server that runs the FastAPI app.
+  - python-multipart     Needed by FastAPI to receive file uploads.
+  - pdfplumber 0.11      The core PDF engine: reads text with exact positions
+                         and detects tables from ruling lines. Every
+                         extraction rule is built on its output.
+  - PyMuPDF (fitz) 1.28  Renders a PDF page to a PNG image for the "view
+                         source page" button (fast, good quality), and reads
+                         sideways-printed column headings in the right order
+                         during extraction.
+  - python-docx 1.2      Writes the draft Truing Up Order as an editable Word
+                         file (MIT licence). Some table cells are written as
+                         raw XML (via lxml, which python-docx uses) for speed.
+
+Dev / test
+  - pytest 9             Automated tests (backend/requirements-dev.txt).
+
+Standard library pieces doing real work
+  - re (regular expressions) - table-heading, chapter and year patterns
+  - json, pathlib            - file-based storage
+  - threading                - background re-extraction on startup
+  - unicodedata              - normalising odd dashes/quotes in labels
+
+Storage
+  - No database. Each uploaded document is a folder of files on disk
+    (PDF + JSON); each comparison is a JSON file. Simple, transparent, easy to
+    inspect and back up. (Fine for a single-office prototype; a database would
+    be the step up for multi-user deployment.)
+
+Deliberately NOT used
+  - No OCR: the PDFs are Word-generated with a real text layer.
+  - No AI / LLM / cloud API: hard requirement (offline, zero cost,
+    explainable, no data leaves the machine).
+  - No ML model for matching: mappings are curated and verified by hand,
+    because a wrong silent match is worse than a gap in a regulatory review.
+
+Tooling
+  - Git + GitHub (repo: niranjan759/KSERC), two developers.
+  - .claude/launch.json defines how to start the dev server.
+
+
+--------------------------------------------------------------------------------
+7. ARCHITECTURE
+--------------------------------------------------------------------------------
+
+   Browser (frontend/: index.html, app.js, styles.css)
+        |   fetch() calls to /api/...
+        v
+   FastAPI app (backend/main.py)  ---- serves the frontend files at "/"
+        |
+        +-- upload ---> ingest.py (background task)
+        |                  |
+        |                  v
+        |          extraction/extract_sbu_g.py   (PDF -> tables, per chapter)
+        |                  |
+        |                  v
+        |          storage.py  -> backend/uploads/<doc_id>/
+        |                          source.pdf, data.json, status.json
+        |          doc_meta.py -> document type + financial year
+        |
+        +-- compare --> comparison.py
+        |                  |  checks inputs (right doc in right slot, years)
+        |                  v
+        |      extraction/schema_discovery.py  (stage i: field list)
+        |      extraction/arr_budget.py        (stage ii: ARR approved)
+        |      extraction/petition_claims.py   (stage iii: claims)
+        |      extraction/compare.py           (join + deviation)
+        |                  |
+        |                  v
+        |         backend/comparisons/<id>/data.json   (+ decisions)
+        |
+        +-- draft order --> order_draft.py        (stage iv: Word document)
+                               |-- order_style.py        (KSERC house style)
+                               +-- order_consolidated.py (all-units tables)
+
+Folder structure (line counts as of 2026-10-19, ~6,700 lines total)
+  PROJECT_BRIEF.md                 Detailed technical brief + all findings
+  context.txt                      This file (kept in git)
+  backend/
+    main.py              320  API endpoints, startup hook, static files,
+                              no-cache header for the frontend
+    storage.py           159  File storage, ID validation, extraction version
+    ingest.py             93  Upload processing, re-extraction (backfill)
+    doc_meta.py          111  Detects document type and financial year
+    comparison.py        437  Input checks, builds/saves comparisons,
+                              reviewer tools (nearby rows, add/remove lines)
+    order_draft.py       511  Stage (iv): decisions, the Word drafts
+    order_style.py       345  House style of the KSERC orders (Word)
+    order_consolidated.py 286 Table 1.1 + Chapter 7: sums of the three units
+    requirements.txt          Runtime dependencies
+    requirements-dev.txt      + pytest
+    extraction/
+      extract_sbu_g.py  1191  The PDF extraction engine (all chapters,
+                              despite the historical name): tables, their
+                              layout, and each chapter's text blocks
+      schema_discovery.py 154 Stage (i): fields from last year's order
+      arr_budget.py      510  Stage (ii): ARR field maps per SBU
+      petition_claims.py 623  Stage (iii): petition tables, aliases,
+                              new-line detection
+      compare.py         145  Joins approved vs claimed, deviation
+    tests/               (41 tests) test_comparison_baseline.py (+ fixture),
+                         test_table_markers.py, test_appendix_markers.py,
+                         test_table_row_normalization.py, test_order_draft.py,
+                         test_order_consolidated.py, test_order_exclusion.py
+    uploads/        (not in git) one folder per uploaded document
+    comparisons/    (not in git) one folder per comparison
+  frontend/
+    index.html            53  Page skeleton: Documents / Compare views
+    app.js               901  All UI logic (documents, comparison, draft order)
+    styles.css           505  Styling
+
+
+--------------------------------------------------------------------------------
+8. END-TO-END DATA FLOW
+--------------------------------------------------------------------------------
+8.1 Upload
+  1. Browser POSTs the PDF to /api/documents/upload.
+  2. Server saves it as uploads/<doc_id>/source.pdf (doc_id = random 32-hex
+     string), writes status.json = "processing", and returns immediately.
+  3. A background task (ingest.process_upload) runs the extraction. The UI
+     polls every 4 seconds and shows "processing" until done.
+  4. If no SBU chapter is found in the PDF, it isn't a regulatory document:
+     the upload is refused and the PDF deleted.
+  5. Otherwise data.json is written: every chapter's tables, plus the
+     extraction version.
+  6. doc_meta classifies the document (truing_up_order / arr / petition) and
+     reads its financial year or control period.
+
+8.2 Document classification (doc_meta.py) - rule-based scoring
+  Looks at the first pages' text and the chapter headings for signals:
+    - "FILING NO", "BEFORE THE HONOURABLE"           -> petition
+    - "ORDER DATED", "PRESENT" + "CHAIRMAN"          -> an order
+    - "CONTROL PERIOD", "ARR, ERC AND TARIFF"        -> ARR
+    - "TRUING-UP OF ARR" / "TRUING UP OF ACCOUNTS OF STRATEGIC BUSINESS UNIT"
+    - table numbering style (lettered "G8" vs decimal "2.1")
+  Scores below a threshold give "unknown". The year is read from phrases like
+  "FINANCIAL YEAR 2024-25" and normalised to "2024-25"; the control period
+  from "CONTROL PERIOD x TO y".
+
+8.3 Re-extraction ("backfill")
+  storage.EXTRACTION_VERSION (currently 8) records the version of the
+  extraction rules. On server start, any stored document extracted with an
+  older version is re-extracted in a background thread (about 9 minutes for
+  the four test documents). Tables a reviewer already marked "reviewed" are
+  carried over. The UI shows "Updating..." meanwhile. So improving the
+  extractor improves every stored document without re-uploading.
+  Version history: 5 Appendix tables + sideways headings; 6 chapter text
+  blocks; 7 lettered tables kept apart + no value dropped by row padding;
+  8 print style of each text block + each table's column widths and
+  printed header rows (for typesetting the draft order).
+
+8.4 Comparison (comparison.build)
+  1. Input guard (check_inputs): each document must be the right type for its
+     slot; the year must be valid (YYYY-YY) and inside the ARR's control
+     period; the petition's year must equal the target year; the same
+     document can't be used twice. Errors block the run; softer issues
+     (e.g. template order is newer than the target year) are warnings.
+  2. Stage (i): discover_schema reads the previous Truing Up Order's tables
+     for that SBU and lists every labelled row as a field.
+  3. new_petition_lines adds claim lines found in the petition's summary
+     table that last year's order didn't have.
+  4. Stage (ii): extract_arr_budget looks up each mapped field in the ARR.
+  5. Stage (iii): match_schema_to_petition finds each field's claim.
+  6. compare.build_comparison joins them and computes the deviation.
+  7. The result is saved as comparisons/<id>/data.json and shown in the
+     dashboard.
+
+8.5 Draft order (order_draft.build_full_docx / build_docx)
+  1. The reviewer records decisions on the Draft order page (saved on each
+     field: decision, commission_approved, reason, excluded).
+  2. "Download full order": the previous order's chapters are walked block
+     by block (headings, numbered paragraphs, tables - learned at
+     extraction) and rebuilt in a new Word document in the KSERC house
+     style; years roll forward, figures from last year's wording are
+     highlighted, decision sentences are rewritten from the recorded
+     decisions, tables are filled from the comparisons (all three units for
+     the combined tables).
+  3. "Chapter summary only": a short chapter for one unit: a summary table
+     of every cost head plus one paragraph per head with its decision.
+  4. The page downloads the file with a progress message; ~10 s for the full
+     order, under a second for the summary.
+
+
+--------------------------------------------------------------------------------
+9. THE EXTRACTION ENGINE (extract_sbu_g.py) - the hardest part
+--------------------------------------------------------------------------------
+Why it's hard: pdfplumber returns rows of cells, but real regulatory PDFs
+break tables in many ways. Every rule below was added after finding a real
+wrong result, checked against the PDF, then re-tested on all documents.
+
+9.1 Finding chapters
+  - Chapters are found by "CHAPTER-N" headings, which must increase
+    (2, 3, 4...). This stops a stray "Chapter-3" mention in the middle of the
+    ARR from being taken as a new chapter.
+  - Each SBU chapter is recognised by name ("Generation") OR code ("SBU-G",
+    "SBU - T & SLDC"). A heading naming several SBUs (e.g. "apportioning ...
+    among SBU-G, SBU-T and SBU-D") is skipped.
+  - Chapter numbers differ per document (SBU-G is Chapter 2 in the order and
+    petition but Chapter 4 in the ARR) - never assumed.
+  - Annexures (no "CHAPTER" marker) are detected after the last chapter.
+  - Every chapter is extracted: SBU chapters are keyed G/T/D; others C1,
+    C4, ... and CA for annexures.
+
+9.2 Finding tables and their titles
+  - Table headings follow different conventions per document:
+      Truing Up Order: "Table 2.1"     ARR: "Table :4.61"
+      Petition: "Table G8", "Table- G 1", "Table-T 2: ...", "Table D23 (b)"
+    One regular expression handles all of them, including en/em dashes,
+    brackets, and lettered parts like (a)/(b), which must stay separate
+    tables.
+  - Tables quoted from the Tariff Regulations are put aside as "reference
+    tables", not order data. "Appendix 1A : ..." tables (petitions) are kept
+    in their own "appendix_tables" group.
+  - Column headings printed sideways are read in the right order with
+    PyMuPDF ("dnaL sgnidliuB" -> "Building Land").
+
+9.3 Problems solved (summary of the documented findings)
+  - Page breaks: a table continues on the next page with no repeated header
+    and sometimes a different column count. Continuations are merged by
+    horizontal position of value columns (remap_to_open_table).
+  - Orphaned first row: the first row after a page break that pdfplumber
+    doesn't detect as part of a table is rebuilt from positioned text.
+  - Nested duplicate tables (a header cell detected as its own tiny table)
+    are dropped.
+  - Text from one row's cell overflowing into the next row's cell gets
+    interleaved letter by letter ("cChoasrtg oefs" = "Charges of" + "Cost").
+    Fixed where possible using character positions and font size.
+  - Paragraph text detected as table rows (starts with a clause number like
+    "6.267 The Non-Tariff income ...") is split out.
+  - Repeated header rows on continuation pages are dropped.
+  - Multi-line header cells are joined.
+  - Rows are padded to the header width; values beyond the header are never
+    dropped (a bug fixed on 2026-10-09: a merged table lost 5 columns).
+  - Anything that can't be placed with confidence goes to
+    "unclassified_fragments" rather than being forced into a table.
+  - Tables the engine isn't sure about are flagged "needs review".
+
+9.4 Learning the chapter's layout (for the draft order)
+  - Text outside the tables is read line by line into "blocks" in reading
+    order: headings, numbered paragraphs ("2.13 ..."), other paragraphs, and
+    a reference to each table where it sits (assemble_blocks).
+  - Each block records how it was printed (bold / italic / font size / left
+    edge / hanging indent), so the draft can set it the same way: a short
+    BOLD line is a heading; bold italic is the Commission's conclusion;
+    italic 11 pt indented is a quoted Regulation.
+  - Lines sitting directly under each other at normal spacing stay one
+    paragraph; short 9 pt lines outside a table are stray table cells.
+  - Each table records its layout: column widths in points and its header
+    rows as printed, with merged cells (e.g. "ARR&ERC Order dated
+    25.06.2022" spanning Gross / Aux / Net generation).
+
+9.5 Output per chapter (stored in data.json)
+  order_tables (table_no, title, pages, header, unit_row, data_rows, layout,
+  needs_review, reviewed), reference_tables, appendix_tables,
+  unclassified_fragments, blocks, chapter_heading, pages, label, and the
+  chapter's page text.
+
+
+--------------------------------------------------------------------------------
+10. FIELD MAPPING AND COMPARISON LOGIC
+--------------------------------------------------------------------------------
+10.1 Key design rule: match by table TITLE, never table NUMBER
+  The same table is "Table 2.19" one year and "Table 2.16" the next.
+  Every mapping is scoped by a title pattern (regex), so it survives
+  renumbering across years.
+
+10.2 ARR field maps (arr_budget.py) - one per SBU
+  Curated list: (field label, title pattern of the order table it comes from,
+  ARR table title pattern, ARR row label, note[, options]).
+  - Every entry was verified: the ARR value pulled for 2023-24 and 2024-25
+    equals the order's own "MYT approved" column.
+  - The ARR prints claimed AND approved columns side by side for the same
+    years; only the Commission's half is used (columns after
+    "Approval"/"provisional").
+  - Fields the ARR never budgets (e.g. Exceptional items, Pay revision
+    arrears, incentives) are shown as "No ARR line" with an explanation,
+    which is a confirmed absence, not a gap.
+  - If an expected ARR row is missing (e.g. a new ARR rewords a title), the
+    field is flagged "Needs review" with the reason, rather than shown as
+    zero.
+  - Options: "year_rows" for an ARR table that lists years down the rows
+    (SBU-D R&M); "negate" for the revenue gap, which the ARR prints as a
+    positive shortfall but the petition as "(-)".
+
+10.3 Petition claims (petition_claims.py)
+  - Per SBU, the list of petition tables holding claims, with the column
+    names to read: e.g. SBU-G "TU Sought", SBU-T "Truing up requirement",
+    SBU-D "True up" / "True up claim".
+  - Aliases: the same item worded differently ("Interest on outstanding
+    Loans" = "Interest on Term Loans"; "Repayment of existing master trust"
+    = "Repayment of bond to master trust").
+  - Labels ending in a year ("Carrying cost on revenue gap till 2023-24") are
+    matched without the year.
+  - "No separate claim": items the petition doesn't claim individually
+    (e.g. SBU-G/T O&M components are claimed only as a normative total;
+    SBU-D has no Net ARR line) are labelled as such, not left blank.
+  - Column repairs for known PDF quirks: whole-table column offsets, values
+    sitting one column left of their header, single shifted rows.
+  - New claim lines: lines in this year's petition summary that last year's
+    order doesn't have are added and flagged "New line" (e.g. 2024-25 SBU-D
+    "Registration charges for solar refunded" Rs 24.18 Cr).
+
+10.4 Deviation and flags (compare.py)
+  - Deviation = claimed - approved (Rs. Cr); % = deviation / |approved|.
+    Computed by the system, never copied from the documents' own
+    "difference" columns (those were found to be misaligned in places).
+  - Numbers like "12,982.59", "(-)2939.12", "(- )1,323.75" are parsed.
+  - A row counts as significant when BOTH thresholds are met:
+    deviation % >= 10 (default) AND |deviation| >= Rs 1 Cr (default).
+    Both thresholds are editable per comparison in the dashboard.
+  - Flags: Needs review (with reason), No ARR line, No separate claim,
+    New line, Reviewed.
+
+10.4b Reviewer tools for gaps (comparison.py, the comparison page)
+  - "Add ARR value": type the approved figure for a line the ARR doesn't
+    carry (or a new petition line); it replaces the "No ARR line" note,
+    and clearing it brings the note back.
+  - "Check nearby in ARR / petition": shows the source table rows around
+    where a missing figure should be (located from the neighbouring fields
+    that were found), with the source page; clicking a cell uses its value.
+  - Add a petition line by hand (from a searchable list of petition rows not
+    yet in the comparison), and remove a line the reviewer decides doesn't
+    belong (new lines only).
+
+10.5 What's deliberately not compared
+  - Calculation inputs (norms, rates, escalation indices), physical
+    quantities (MW, MU), and per-station detail tables: they feed the totals
+    that ARE compared and aren't claimed-vs-approved figures themselves.
+  - SBU-D tariff income / power-factor incentive / Total ERC: the ARR states
+    tariff revenue net of the incentive, so neither line matches directly.
+
+
+--------------------------------------------------------------------------------
+11. REST API (backend/main.py)
+--------------------------------------------------------------------------------
+  POST   /api/documents/upload                 Upload PDF (async processing)
+  GET    /api/documents                        List documents + status/type/year
+  GET    /api/documents/{id}                   Full extracted data
+  DELETE /api/documents/{id}                   Delete a document
+  PATCH  /api/documents/{id}/{bucket}/{index}?sbu=G
+                                               Edit table rows / mark reviewed
+  GET    /api/documents/{id}/page/{n}.png      Render a PDF page (PyMuPDF)
+  GET    /api/sbus                             Which SBUs can be compared
+  POST   /api/comparisons                      Run + save a comparison
+  GET    /api/comparisons                      List comparisons
+  GET    /api/comparisons/{id}                 One comparison (re-checked for
+                                               deleted/mismatched documents)
+  DELETE /api/comparisons/{id}                 Delete a comparison
+  PATCH  /api/comparisons/{id}/fields/{i}      Edit a value, mark reviewed,
+                                               record a decision / reason,
+                                               remove from (or restore to) the
+                                               order (deviation recomputed)
+  POST   /api/comparisons/{id}/fields          Add a petition line by hand
+  DELETE /api/comparisons/{id}/fields/{i}      Remove a new petition line
+  GET    /api/comparisons/{id}/candidates?q=   Petition rows not yet compared
+  GET    /api/comparisons/{id}/fields/{i}/nearby?side=arr|petition
+                                               Source rows around a missing
+                                               figure
+  GET    /api/comparisons/{id}/fields/{i}/precedent
+                                               Last year's paragraphs on a head
+  POST   /api/comparisons/{id}/accept-remaining
+                                               Accept every pending claim
+  PATCH  /api/comparisons/{id}/settings        Change thresholds
+  GET    /api/comparisons/{id}/order.docx      Draft Truing Up Order (Word):
+                                               full order, or ?scope=chapter
+                                               for the chapter summary
+  /                                            Serves the frontend (sent with
+                                               Cache-Control: no-cache, so a
+                                               browser never runs an old
+                                               app.js)
+
+Security basics: document/comparison IDs must be exactly 32 hex characters
+(blocks path-traversal attempts like "..\\" in a URL); invalid IDs get 404.
+The server binds to localhost only.
+
+
+--------------------------------------------------------------------------------
+12. FRONTEND (frontend/)
+--------------------------------------------------------------------------------
+Plain HTML/CSS/JavaScript, single page, two views (plus the Draft order
+page inside Compare):
+  Documents view
+    - Upload box; list of documents with type, year, chapter/table counts,
+      processing / failed / updating states (auto-refresh while busy).
+    - Tabs per chapter (Ch.1 Introduction, SBU-G, SBU-T, Ch.4 Energy Sales,
+      SBU-D, ... Annexures); collapsible chapter text.
+    - Every table as an editable grid; "Mark reviewed"; "View source page"
+      opens the PDF page image.
+  Compare view
+    - "New comparison" form: business unit, previous order (schema source),
+      ARR, petition, target year (prefilled from the petition). Only
+      documents of the right type are offered per slot.
+    - Comparison table with deviation, % and flags; significant rows
+      highlighted; editable values; source-page buttons for ARR and
+      petition; threshold controls; delete button; the reviewer tools
+      (Add ARR value, Check nearby, Remove a new line).
+    - Red/amber notices for input errors and warnings; old comparisons whose
+      documents were deleted or mismatched are labelled as such.
+  Draft order page ("Draft order" button on a comparison)
+    - Per cost head: ARR approved, KSEB claimed, Decision (Pending / Accept
+      claim / Modify / Disallow), Approved by Commission, Reason, and
+      buttons "Last year" (the previous order's paragraphs on that head) and
+      "Remove" (leave the head out of the order; listed below with Restore).
+    - "Accept all remaining claims" (confirmed): accepts every pending item
+      with a claim.
+    - "Download full order (Word)" and "Chapter summary only": the page
+      shows "Preparing...", then the saved file name, or the error. Note:
+      the browser built into the Claude app doesn't save downloads - use
+      Chrome or Edge.
+
+
+--------------------------------------------------------------------------------
+13. RESULTS (what the system produces today)
+--------------------------------------------------------------------------------
+Test documents: Truing Up Order 2023-24 (237 pages), ARR 2022-27 (493 pages),
+petitions 2023-24 (170 pages) and 2024-25. Truing Up Order 2024-25 was used
+for cross-checking.
+
+Sample FY 2024-25 comparison (schema from the 2023-24 order), Rs. Cr:
+  SBU-G  Net ARR                    approved   734.62  claimed   714.05  -2.8%
+  SBU-T  Net ARR                    approved  1706.12  claimed  1654.89  -3.0%
+  SBU-D  Cost of Power Purchase     approved 10716.26  claimed 12930.60 +20.7%
+  SBU-D  Interest & Finance Charges approved  1499.43  claimed  1881.33 +25.5%
+  SBU-D  Total ARR                  approved 20591.41  claimed 22704.89 +10.3%
+  SBU-D  Carrying cost on rev. gap  approved   120.33  claimed   382.02 +217%
+  SBU-D  Net revenue gap            approved -3020.30  claimed -1053.79
+
+Cross-unit consistency check that holds: SBU-D's "Cost of Generation" claim
+equals SBU-G's Net ARR claim (626.48 in 2023-24, 714.05 in 2024-25), and
+SBU-D's "Intra-State Transmission" claim equals SBU-T's Net ARR claim
+(1553.14 / 1654.89).
+
+Known source discrepancies shown as-is (the ARR is the authority): e.g. the
+2023-24 order reprints SBU-T Repayment as 45.81 where the ARR says 45.79.
+
+Draft order for FY 2024-25 (from the 2023-24 order as template):
+  - Full order: every chapter, ~255 tables, typeset like the real order;
+    built in ~10 s.
+  - Table 1.1 / 7.1 (KSEB-wide summary), e.g. claimed: Interest & Finance
+    Charges 2584.39 = G 196.15 + T 506.91 + D 1881.33; Net Expenditure (A)
+    22824.83; Total Income (B) 21771.04; revenue gap -1053.79.
+  - Filling the 2023-24 order's own combined tables from FY2023-24 data
+    reproduces every printed figure except five misprints in that order
+    (see B15).
+
+
+--------------------------------------------------------------------------------
+14. VERIFICATION AND TESTING
+--------------------------------------------------------------------------------
+Method used throughout
+  For every fix: print pdfplumber's raw output for the table, compare with
+  the PDF text side by side, find the real cause, fix it, then re-extract ALL
+  documents and diff the results against the previous run to make sure
+  nothing else changed. Figures are cross-checked against independent
+  reprints (e.g. the Truing Up Order reprints the petition's claims, and the
+  ARR approvals appear in the order's "MYT" column).
+
+Automated tests (run: cd backend && python -m pytest -q tests)
+  - test_comparison_baseline.py: re-runs all six comparisons
+    (G/T/D x 2023-24/2024-25) through the app's own pipeline and checks all
+    157 verified figures. Uses the documents uploaded on that machine
+    (uploads aren't in git) and skips if they're missing.
+  - test_table_markers.py: every table-heading style, including (a)/(b).
+  - test_appendix_markers.py: "Appendix 1A : ..." headings.
+  - test_table_row_normalization.py: rows padded, values never dropped.
+  - test_order_draft.py: decisions (pending by default, accept / modify /
+    disallow, "accept all remaining"), year roll-forward, highlighting,
+    table filling, the chapter summary's wording.
+  - test_order_consolidated.py: the combined tables are the three units
+    added up; the 2023-24 order's printed figures are reproduced; last
+    year's figures are never carried over.
+  - test_order_exclusion.py: removed cost heads are left out of the draft.
+  41 tests in all.
+
+
+--------------------------------------------------------------------------------
+15. KNOWN LIMITATIONS
+--------------------------------------------------------------------------------
+  - Coverage: ~77 compared fields from roughly 15 of the order's ~136 tables.
+    The rest still need mapping (one verified table at a time).
+  - Some labels in the PDFs are printed on top of each other, so the text
+    comes out garbled; where a clean copy of the same row exists elsewhere,
+    that copy is used.
+  - The 2023-24 petition gives no separate SBU-D Employee/A&G and R&M claims,
+    so those show blank for FY2023-24.
+  - Untested on a 2025-26 petition (not yet available). Lookups are title
+    based, so it should work, and anything not found is flagged rather than
+    hidden. A new ARR (2027-32) will likely need its title patterns checked.
+  - Only Word-generated PDFs with a text layer (no OCR for scans).
+  - File storage, single user, no login - a prototype, not a deployed
+    multi-user system.
+  - Draft order:
+      * the carried-over wording (reasoning, findings) is last year's and
+        must be rewritten by staff - no AI by design;
+      * most detail tables are still empty ([ ]) - only mapped cost heads
+        are filled (in SBU-D about 164 of 4,284 cells);
+      * the "Actual" column of the combined tables stays empty: SBU-D's
+        petition summary has no actuals column;
+      * month labels ("Apr-23") don't roll forward; two-panel tables (the
+        monthly hydel table) are read as one half; a heading that wraps
+        onto two lines becomes two headings;
+      * the result could only be checked by reading the Word file's
+        settings (no Word / LibreOffice on the development machine).
+
+
+--------------------------------------------------------------------------------
+16. ROADMAP (next steps, in order)
+--------------------------------------------------------------------------------
+  1. (Done 2026-10-09) Fix the trimming data loss, lock in verified figures
+     as tests, agree a git routine for two developers.
+  2. (Done 2026-10-17/19) Stage (iv): decisions per cost head, reviewer
+     tools, Word drafts of the whole order in the KSERC house style, the
+     combined tables of Chapters 1 and 7, removal of cost heads, every
+     decision starting as Pending.
+  3. Next: map more of the detail tables whose figures are in the petition
+     (SBU-G capacity, generation, monthly hydel, fuel cost, working capital,
+     other charges; then SBU-D power purchase), each checked against last
+     year's order.
+  4. Small draft fixes: month labels rolling forward, two-panel tables,
+     wrapped headings, SBU-D actuals from the petition's accounts tables.
+  5. Test on the next year's documents (2025-26 petition with the 2024-25
+     order as template) when available.
+  Later: the Commission's own calculations under the Regulations (normative
+  O&M with inflation indices, working capital, carrying cost), deviation
+  explanation layer, learning aliases from reviewer corrections.
+
+What order generation can and can't do (important expectation to set):
+  It reproduces the previous order - every chapter's sub-headings, numbered
+  paragraphs, text and table positions, in the same typography - with years
+  rolled forward, mapped tables filled with this year's figures, decision
+  sentences rewritten from the reviewer's decisions, and last year's figures
+  in the wording highlighted for checking. It cannot write this year's
+  reasoning (no AI by design: carried-over text is last year's and must be
+  rewritten), fill tables whose figures come from outside data or aren't
+  mapped yet, or decide the approved figures - those stay with the
+  reviewer, and an undecided item is always shown as pending.
+
+
+--------------------------------------------------------------------------------
+17. RUNNING THE PROJECT
+--------------------------------------------------------------------------------
+  Install:   cd backend
+             python -m pip install -r requirements-dev.txt
+  Run:       (from the project root)
+             python -m uvicorn main:app --reload --port 8000 --app-dir backend
+             then open http://localhost:8000
+  Test:      cd backend && python -m pytest -q tests
+  Note (Windows): auto-reload sometimes hangs after a code change - stop and
+  start the server again.
+  Large PDFs take a few minutes to process after upload; the list shows
+  "processing" until done. After pulling a change that raises
+  EXTRACTION_VERSION, stored documents are re-read on the next start (about
+  9 minutes; they show "Updating...").
+  Use Chrome or Edge at http://localhost:8000 to download the Word drafts.
+
+
+--------------------------------------------------------------------------------
+18. SUGGESTED PRESENTATION OUTLINE (12-14 slides)
+--------------------------------------------------------------------------------
+  1. Title - KSERC Truing-Up Decision-Support System (HITL).
+  2. The problem - three long PDFs, manual cross-checking, error-prone.
+  3. Domain in one picture - KSEB -> petition -> KSERC -> Truing Up Order;
+     ARR as the approved budget; three SBUs.
+  4. Our approach - four stages (schema, ARR, petition, order); human in the
+     loop; no AI, offline, zero cost, every number traceable to a page.
+  5. Architecture diagram (section 7).
+  6. Tech stack and why (section 6).
+  7. The hard part: extracting tables from real PDFs - show a before/after
+     (a page-break table, the garbled overlapping text, the D23(a)/(b) merge).
+  8. Matching fields across documents and years - title-based mapping,
+     aliases, sign conventions, new-line detection.
+  9. Live demo / screenshots - upload, document view with source page,
+     compare view with flags, reviewer tools.
+  10. Decisions and the draft order - the Draft order page (Pending /
+     Accept / Modify / Disallow + reason, "Last year"), then the Word draft
+     next to the real 2023-24 order: same typography, tables with merged
+     headings, Chapter 1 / 7 combined tables filled.
+  11. Results - the sample figures in section 13, cross-unit consistency,
+     the combined tables reproducing last year's printed figures.
+  12. Accuracy and testing - 157 verified figures, 41 automated tests.
+  13. Limitations and honest scope (section 15).
+  14. Roadmap (section 16) and Q&A.
+
+
+--------------------------------------------------------------------------------
+19. GLOSSARY
+--------------------------------------------------------------------------------
+  A&G            Administrative & General expenses
+  ARR            Aggregate Revenue Requirement - the approved total cost
+  ARR order      KSERC order fixing ARR for each year of a control period
+  Control period Multi-year tariff period (here 2022-23 to 2026-27)
+  ERC            Expected Revenue from Charges (tariff revenue side)
+  GPF            General Provident Fund (interest on it is a cost)
+  HITL           Human in the loop - the human makes final decisions
+  I&F / I&FC     Interest and Finance Charges
+  MYT            Multi-Year Tariff (the ARR approval, "MYT Order")
+  Master Trust   Trust funding KSEB's pension liabilities (bonds, contributions)
+  Net ARR        ARR minus non-tariff income
+  O&M            Operation and Maintenance (Employee + A&G + R&M)
+  R&M            Repair and Maintenance
+  RoE            Return on Equity (14%)
+  Revenue gap    Shortfall of revenue against Net ARR
+  SBU-G/T/D      Generation / Transmission / Distribution business units
+  Schema         The list of fields to compare, learned from last year's order
+  SLDC           State Load Despatch Centre (grouped with SBU-T)
+  TU / Truing up Reconciling approved figures with actuals after the year
+  TU Sought      The amount KSEB asks to be trued up to = the claim
+  pdfplumber     Python library that reads text/tables from PDFs
+  FastAPI        Python web framework used for the backend API
+
+
+--------------------------------------------------------------------------------
+20. LIKELY QUESTIONS AND SHORT ANSWERS
+--------------------------------------------------------------------------------
+  Q: Why not use ChatGPT/an LLM to read the PDFs?
+  A: Requirement: offline, free, and every number must be explainable and
+     traceable. LLMs can invent or misplace numbers and send data off-site.
+     Our rules are deterministic and every figure links to its page.
+
+  Q: How do you know the numbers are right?
+  A: Each mapping was verified against the PDFs and cross-checked against
+     independent reprints; 157 figures are locked in by an automated test
+     that re-runs on every change.
+
+  Q: What happens with a new year's documents?
+  A: Tables are found by title, not number, so renumbering doesn't break it.
+     Anything not found is flagged "Needs review" instead of shown as zero,
+     and new claim lines are flagged "New line".
+
+  Q: Can it write the Truing Up Order?
+  A: It drafts it: last year's order, chapter by chapter, in the same
+     layout and typography, with this year's figures in the mapped tables
+     and the reviewer's decisions in the decision sentences. The reasoning
+     is last year's wording and must be rewritten by staff, and nothing is
+     approved unless a reviewer decided it.
+
+  Q: Does the draft look like a real KSERC order?
+  A: It uses the house style measured from the real 2023-24 order: A4,
+     Arial 12, the same margins, hanging clause numbers, centred chapter
+     titles and table captions, bold-italic conclusions, tables with the
+     printed column widths and merged headings.
+
+  Q: Can the draft show last year's numbers by mistake?
+  A: No: a figure in a table is either this year's (from the comparisons)
+     or a highlighted [ ]; figures carried over in the wording are
+     highlighted for checking.
+
+  Q: Why no database?
+  A: Prototype for one office; JSON files are simple and transparent. A
+     database is the natural step for multi-user deployment.
+
+  Q: What was the hardest problem?
+  A: Real-world PDF tables - page breaks, merged/split tables, overlapping
+     text, inconsistent numbering - each solved with a specific, tested rule.
+
+
+################################################################################
+################################################################################
+
+ PART B - DETAILED REFERENCE (how every piece works, start to finish)
+
+################################################################################
+################################################################################
+
+
+--------------------------------------------------------------------------------
+B1. THE COMPLETE JOURNEY OF ONE DOCUMENT AND ONE COMPARISON
+--------------------------------------------------------------------------------
+  [Browser]  user picks a PDF, clicks "Upload & extract"
+     |   POST /api/documents/upload (multipart file)
+  [main.py]  rejects non-.pdf names (400); creates doc_id (uuid4 hex);
+             writes uploads/<doc_id>/source.pdf; writes status.json
+             {"state":"processing","filename":...}; queues
+             ingest.process_upload as a FastAPI background task;
+             responds {"doc_id", "filename", "state":"processing"} at once
+     |
+  [ingest.process_upload]  (runs after the response is sent)
+     1. extract_all_sections(source.pdf)  -> every chapter's tables
+        - any exception -> status "failed": "Couldn't read this PDF."
+     2. if none of G/T/D chapters was found -> status "failed" with
+        "No SBU chapter was found - this doesn't look like a KSERC Truing Up
+        Order, ARR order or truing-up petition."; the PDF is deleted
+     3. every table gets reviewed = False
+     4. data = {doc_id, filename, sbus: {...chapters...},
+                extraction_version: 8}
+     5. storage.get_meta -> doc_meta.classify -> cached as data["doc_meta"]
+     6. data.json written; status.json removed (= ready)
+     |
+  [Browser]  document list polls GET /api/documents every 4 s while any
+             document is processing/updating; shows label, chapter count,
+             table count, flagged count
+     |
+  [Browser]  user opens Compare -> "+ New comparison" -> picks SBU, the
+             three documents, target year -> POST /api/comparisons
+     |
+  [comparison.build]
+     1. SBU must be in mapped_sbus() (G, T, D all are)
+     2. load the three data.json files (error if any missing)
+     3. check_inputs -> errors block; warnings are kept
+     4. take each document's section for that SBU (error if a document has
+        no chapter for it, e.g. still processing)
+     5. compute_fields:
+          schema  = discover_schema(TUO section)            stage (i)
+          schema += new_petition_lines(schema, petition)
+          budget  = extract_arr_budget(schema, ARR, year)   stage (ii)
+          claims  = match_schema_to_petition(schema, pet)   stage (iii)
+          fields  = build_comparison(budget, claims)
+     6. save comparisons/<id>/data.json (see B10 for its shape)
+     |
+  [Browser]  renders the comparison table; edits/reviewed ticks/threshold
+             changes are PATCHed back and saved immediately
+     |
+  [Browser]  "Draft order" -> decisions / reasons per cost head are PATCHed
+             onto the fields; "Download full order (Word)" ->
+             GET /api/comparisons/{id}/order.docx
+     |
+  [order_draft.build_full_docx]  previous order's chapters (blocks + tables
+             learned at extraction) -> new Word document in the house style
+             (order_style), tables filled from the comparisons of all three
+             units made from the same documents and year (B15)
+
+
+--------------------------------------------------------------------------------
+B2. EXTRACTION, STEP BY STEP (backend/extraction/extract_sbu_g.py)
+--------------------------------------------------------------------------------
+Entry point: extract_all_sections(pdf_path)
+  1. list_chapters(pdf) - one scan of the whole PDF:
+     - For each page, look at its first 4 text lines for
+       "CHAPTER - N" (pattern CHAPTER_PAT, accepts -, en dash, em dash, colon).
+     - Accept it only if N is greater than the last chapter number seen
+       (prose like "Chapter-3 of this order is extracted below" on ARR p.176
+       would otherwise start a fake chapter).
+     - Heading = that line plus the next 3 lines (the title is often on the
+       lines after "CHAPTER-2").
+     - After the last chapter, the first page whose first lines say
+       "ANNEXURE(S)" starts an Annexures chapter (number "A").
+     - Each chapter ends where the next starts (last one: end of PDF).
+  2. For G, T, D: find_sbu_chapter picks the chapter whose heading names
+     ONLY that SBU (by name "Generation"/"Transmission"/"Distribution" or
+     code "SBU-G"/"SBU - T"...); otherwise the first heading naming it at
+     all. Not found -> {"error": "No SBU-x chapter heading found ..."}.
+  3. Every other chapter is extracted too, keyed "C<number>" (e.g. C1, C4)
+     or "CA" for annexures. Labels for tabs come from chapter_label():
+     "Ch.4 Energy Sales And T&D Loss", "Annexures", "SBU-G Generation".
+
+extract_chapter(pdf_path, chapter) - the page loop. For each page:
+  a. Save the page's plain text (shown as "Chapter text" in the UI).
+  b. Find table-heading lines on the page (TABLE_MARKER_PAT, see B3); each
+     becomes a marker (vertical position, table_no, is_order, title text).
+  c. tables = page.find_tables() (pdfplumber), minus any table lying
+     entirely inside another (_drop_nested_tables).
+  d. Orphan-row rescue (collect_orphan_continuation_rows): if a table is
+     still open from the previous page, look at text lines within 20 pt
+     above this page's first table; rebuild each into cells by placing
+     every word into the open table's columns by horizontal position;
+     keep it only if it has a real figure and isn't a paragraph
+     (clause number + 5 or more words). Appended to the open table.
+  e. For each detected table (top to bottom):
+     - raw cells -> join_cell (newlines to spaces, collapse whitespace)
+     - fix_overflow_cells (see B4)
+     - Page-break remap: if a table is open, this table's column count
+       differs from it, its first row is data (has a figure) and not prose,
+       and _is_page_continuation says yes (first table on the page, no
+       table heading above it, open table last extended on the previous
+       page or by an orphan row on this one, >= 70% horizontal overlap),
+       then every cell is re-placed into the open table's columns by the
+       position of the columns that actually hold values
+       (remap_to_open_table / _value_column_centers / _nearest_column:
+       containment first, then nearest center).
+     - Split the table into segments: a row that is itself a table heading
+       (two tables pdfplumber merged into one) starts a new segment with
+       that heading; a prose row (paragraph) becomes its own segment so it
+       ends up as an unclassified fragment.
+  f. For each segment decide: continuation of the open table, or new table?
+     - Its marker is the heading embedded in it, or else the nearest
+       heading line ABOVE the table on this page (a guess).
+     - Continuation if: same table number as the open table (and either the
+       heading was embedded, or the column count matches), OR no heading at
+       all, not forced new, and same column count.
+     - A guessed heading naming a table number already used, that isn't a
+       continuation, is dropped (table numbers don't repeat; it's noise).
+     - Continuation: drop a repeated header/unit row and any leading rows
+       that just repeat the header words (_strip_repeated_header), append
+       the rows, add the page number.
+     - New table: close the open table, then build the new one:
+         * header = first row; if the first row has a single cell (a title
+           folded into the table) and the next row has several, that cell
+           becomes the title and the next row the header;
+         * up to 5 following rows with a blank first cell and no numbers
+           are merged into the header (multi-line headers);
+         * a row of only units ("Rs. Cr", "MU", "%", "MW") becomes unit_row;
+         * title = text after the heading, else the folded title, else the
+           line after the heading line on the page;
+         * rows padded to header width (B5);
+         * remembers its column geometry (_col_centers, _x_span) so a
+           continuation on the next page can be merged; removed on close;
+         * records its printed layout (_table_geometry): each column's width
+           (median left edge of its cells) and the header rows as printed,
+           each cell with colspan / rowspan (merged headings).
+  g. Closing a table: header/unit/data rows normalised; filed as
+     - order_tables       if it has a table number and is an order table,
+     - reference_tables   if its number is a Regulations-style one
+                          ("Table V(3)", "Table - 3": no letter prefix and
+                          no decimal) - quoted regulations, not order data,
+     - appendix_tables    if its heading is "Appendix N" ("App-N"),
+     - unclassified_fragments if it never got a table number.
+  h. needs_review = any data row whose length differs from the header's.
+  i. Text outside the tables (_body_lines): page numbers, the "Table N"
+     caption lines above a table, lines made mostly of figures, and short
+     9 pt lines (stray table cells) are dropped; every other line keeps its
+     print style (_line_style: bold / italic when every character is, the
+     font size, the left edge - the clause number "2.13" itself ignored).
+  j. After the last page, the lines and tables are assembled in reading
+     order into "blocks" (assemble_blocks): a "2.13 ..." line starts a
+     numbered paragraph; a line directly under the previous one at normal
+     spacing, in the same size, continues it; so does a wrapped word or a
+     sentence broken after "Rs."; a short line set in bold (not bold
+     italic) is a heading; every other line starts a new paragraph. Each
+     block keeps its style and the left edge of its later lines (where a
+     numbered paragraph's text hangs).
+
+Output per chapter: {order_tables, reference_tables, appendix_tables,
+unclassified_fragments, blocks, chapter_heading, pages [first, last],
+label, text [{page, text}]}.
+
+
+--------------------------------------------------------------------------------
+B3. TABLE-HEADING RECOGNITION (match_marker + _looks_like_marker)
+--------------------------------------------------------------------------------
+  Pattern TABLE_MARKER_PAT:
+                [quotes] Table [sep] PREFIX [sep] (NUM [(part)]) [sep] TITLE
+    PREFIX = 0-2 letters (G, T, D, V ...), NUM = 23 or 2.1, part = (a)-(h)
+    kept with the number ("23 (b)"); _looks_like_marker turns it into the
+    table number "D23(b)".
+  Pattern APPENDIX_PAT: "Appendix 1A : ...", "Appendix-2 :", "(Contd)
+    Appendix 3- ..." -> "App-1A" etc. (a sentence that merely starts
+    "Appendix 1 gives ..." is not a heading).
+  Examples and results:
+    "Table 2.1 Summary of ..."              -> 2.1      order table
+    "Table- G 1" / "Table-G7"               -> G1 / G7  order table
+    "Table-T 2: ARR of SBU-T"               -> T2, title "ARR of SBU-T"
+    "Table – G2: ..." (en dash)             -> G2
+    "Table :4.61 ..." (ARR)                 -> 4.61
+    "Table D 23(a) ...", "Table D23 (b)..." -> D23(a), D23(b)
+    "Table V(3)", "Table - 3"               -> V3 / 3   reference table
+  is_order = number has a decimal point, OR has a letter prefix other
+  than V.
+
+
+--------------------------------------------------------------------------------
+B4. CELL-LEVEL CLEAN-UPS
+--------------------------------------------------------------------------------
+  - join_cell: "MYT Order\ndated\n25.06.2022" -> "MYT Order dated 25.06.2022".
+  - fix_overflow_cells: inside each cell, characters are grouped into lines
+    with a tight 1.5 pt tolerance. Two lines that overlap vertically mean
+    text spilled down from the row above (e.g. "Trust" woven into "Edamon"
+    gave "TErduasmt on"). The upper line is moved back to the same column
+    of the previous row, but only if: it is >= 3 characters, the same font
+    size (within 15%, so footnote marks like "*" are left alone), letters
+    only (numbers are never moved - checked wrong every time), the lower
+    line is not empty, and it is not the table's first row. Space glyphs
+    are kept so words don't run together.
+  - Prose detection (is_prose_row): a one-cell row starting "6.2 ..." /
+    "2.13.1 ..."; a clause number alone + text cell; or a clause number
+    followed only by words (no figure) totalling > 40 characters.
+  - Data-row test (_is_data_row): has a number other than a leading clause
+    number.
+  - Same-baseline overlap (two labels printed at exactly the same height)
+    can't be separated - e.g. "cChoasrtg oefs I ntra-State Transmission".
+    Mapping works around it by using a clean copy of the row elsewhere.
+
+
+--------------------------------------------------------------------------------
+B5. ROW NORMALISATION (normalize_table_rows)
+--------------------------------------------------------------------------------
+  - Short rows are padded with empty (None) cells up to the header width,
+    so the grid lines up.
+  - Extra cells beyond the header are removed ONLY if empty. Values are
+    never dropped; such a row stays longer than the header, which makes the
+    table "needs review" and the frontend widens the grid.
+  - History: an earlier version cut every row to header width and silently
+    lost 5 columns of a merged table (fixed 2026-10-09, finding #19).
+
+
+--------------------------------------------------------------------------------
+B6. DOCUMENT TYPE AND YEAR DETECTION (doc_meta.py) - exact scoring
+--------------------------------------------------------------------------------
+  Inputs: text of the first 2 pages, the SBU-G (else T, else D) chapter
+  heading, and the numbering of that chapter's tables.
+    petition:         "FILING NO" +2, "BEFORE THE HONOURABLE" +1,
+                      heading "TRUING-UP OF ARR" +1,
+                      most table numbers lettered (G8, T6) +2
+    truing_up_order:  "ORDER DATED" or ("PRESENT" and "CHAIRMAN") +2,
+                      heading "TRUING UP OF ACCOUNTS OF STRATEGIC BUSINESS
+                      UNIT" +2, most table numbers decimal +1
+    arr:              "CONTROL PERIOD" or "ARR, ERC AND TARIFF" +2,
+                      heading contains "ARR&ERC" +2, mostly decimal +1
+  Highest score wins if >= 3, else "unknown" (several signals because cover
+  pages can be garbled, e.g. "I(ERALA STATE ... COMM ISSIOhI").
+  Year:
+    ARR -> control period from "CONTROL PERIOD 2022-23 TO 2026-27"
+           -> [2022-23, 2023-24, 2024-25, 2025-26, 2026-27]
+    others -> "(FINANCIAL) YEAR 2024-25"; else the year appearing most
+           often in table titles.
+  normalize_year accepts "2024-25", "2024-2025", "FY 2024–25"; rejects
+  "23-24" and impossible pairs like "2024-26".
+  Display text (describe): "Truing-up petition (FY 2024-25)",
+  "ARR order (2022-23 to 2026-27)".
+
+
+--------------------------------------------------------------------------------
+B7. STAGE (i) - SCHEMA DISCOVERY (schema_discovery.py)
+--------------------------------------------------------------------------------
+  For every order table of the chosen SBU in last year's Truing Up Order,
+  every data row becomes a candidate field if:
+    - find_label finds a label: walk the row left to right, skip blanks,
+      take at most one leading serial cell ("1", "(a)", "II") as sl_no,
+      and the first non-numeric cell is the label;
+    - row_has_data: at least one number appears after the label.
+  Each field: table_no, table_title, sl_no, field_label, unit, columns,
+  pages, row_index, table_needs_review.
+  Unit (table_unit): from the table's unit row, else a bracket at the end of
+  the title "(Rs. Cr)".
+  Not de-duplicated on purpose (the same label appears in several tables;
+  the title scoping in later stages decides which one counts).
+  The schema has hundreds of fields (e.g. 761 for SBU-D 2023-24); only those
+  in the field maps (B8) are compared.
+
+
+--------------------------------------------------------------------------------
+B8. STAGE (ii) - ARR APPROVED VALUES (arr_budget.py)
+--------------------------------------------------------------------------------
+How a lookup works (extract_arr_budget):
+  1. For each schema field, find a map entry whose label matches (normalised:
+     lower case, "&" -> "and", punctuation removed, trailing year removed)
+     AND whose title pattern matches the field's source table title.
+  2. Skip if that label, or the same ARR target row, was already done
+     (keeps one row per concept - e.g. SBU-G interest "Sub Total" and
+     "Interest & Finance Charges" are the same ARR row).
+  3. Map entry with no ARR table = "No ARR line" with its note.
+  4. Otherwise find the ARR table by title pattern and the row by label
+     (find_row_in_table), read {year: value} for the year columns
+     (_approved_year_values). If the header has a column containing
+     "approv" or "provisional", only columns from there on are used
+     (the ARR prints KSEB's proposal and KSERC's approval side by side).
+     Year headers like "2023- 24" or "MYT period 2022-23" are understood.
+  5. Options: year_rows (table lists years down the rows; read the named
+     column in the Commission's half) and negate (flip the sign).
+  6. Row not found -> needs_review + lookup_problem "Expected ARR row ...
+     not found - the ARR's layout may differ". Year column missing ->
+     needs_review + "ARR table X has no 2025-26 column".
+  7. Results are sorted in map order.
+
+The field maps (left: field label in the order; right: ARR source)
+SBU-G  (order tables: "Transfer Cost of SBU-G", "O&M ... of SBU-G claimed",
+        "Interest and finance charges ...")
+  Cost of Generation of Power ........ no ARR line
+  O&M Expenses for existing stations . "Summary of the O&M cost approved" /
+                                       Existing stations
+  O&M Expenses for new stations ...... same table / New Stations
+  O&M Expenses - Total ............... same table / Total
+  Interest & Finance Charges ......... "Summary of Interest & Finance
+                                       Charges" / Total I&F Charges
+  Depreciation ....................... "Depreciation approved for the MYT
+                                       period" / Total depreciation allowable
+  Repayment of master Trust Bond ..... "ARR of SBU-G for the control period
+                                       as approved"
+  Additional contribution to Master Trust  same table
+  Amortisation of intangible assets .. no ARR line
+  RoE ................................ control-period table / Return on Equity
+  Exceptional Items, Others .......... no ARR line
+  ARR ................................ control-period table / Aggregate
+                                       Revenue Requirement
+  Less Non-Tariff Income ............. "Net ARR for SBU-G as approved" /
+                                       Less Other Income
+  Net ARR (Transferred to SBU-D) ..... same table / Net ARR of SBU G
+  Employee Cost, A&G Expenses, R&M ... "Components wise O&M expenses
+                                       approved"
+  Interest on Capital Liabilities, GPF, Working capital, Master Trust Bonds
+                                       ... interest summary table rows
+  Other Interests, Less: Capitalized, Balance ... no ARR line
+SBU-T  (order tables: "Expenses of SBU-T as per the True up petition" /
+        "Approved Transfer Cost of SBU-T", "Total O&M expenses of SBU-T",
+        "Summary of the interest and finance charges of SBU-T")
+  Interest & Finance Charge, Return on Equity (14%), Depreciation,
+  O&M expenses, Repayment of existing master trust (two wordings),
+  Additional contribution to Master Trust, Edamon-Kochi line compensation,
+  ARR ................................ "KSERC approval- ARR of SBU-T"
+  Less: Non-tariff Income, Net ARR (three truncated wordings)
+                                       ... "KSERC approval- Net ARR of SBU-T"
+  Pugalur-Thrissur line compensation, Amortising of intangible assets,
+  Other expenses, Refund of liquidated damages (two wordings), Exceptional
+  items, Incentive on Transmission Availability ... no ARR line
+  Employee expenses, A&G Expenses, R&M Expenses ... "Components wise O&M
+                                       expenses of SBU-T"
+  Interest on Outstanding Capital (Liabilities), Interest on GPF, on Master
+  Trust Bonds, on Working capital ... "Summary of Interest & Finance
+                                       Charges of SBU-T"; Other charges -
+                                       no ARR line
+SBU-D  (order tables: "ARR, ERC and Revenue gap of SBU-D" / "Aggregate
+        Revenue Requirement for the purpose of Truing up of SBU-D" /
+        "Revenue gap approved for SBU-D"; "Summary of the expenses claimed
+        by KSEB Ltd"; interest summary / "KSEB petition- Interest and
+        financing charges claimed")
+  ARR source for the summary lines: "Summary of Approved ARR&ERC for the
+  control period" (ARR Table 6.180):
+    Cost of Generation (SBU-G), Cost of Power Purchase (incl RLDC
+    [charges]), Cost of Intra-State Transmission (SBU-T), Interest &
+    Finance Charges (I&F charges), Additional contribution to Master Trust,
+    Depreciation, Normative O&M Expenses (O&M Expenses), Return on equity,
+    Recovery of past gap (Recovery of previous gap), Repayment of Bonds,
+    Total ARR (Aggregate Revenue Requirement), Non-Tariff Income (Less
+    Nontariff Income), Net ARR, Revenue from external sale (Revenue from
+    sale of surplus power), Net Revenue Gap (Revenue gap, negated)
+  No ARR line: Pay revision arrears, Other Expenses, Exceptional items,
+    Sharing of gains due to T&D loss (an incentive), Amortisation of
+    intangible assets, Registration charges for solar refunded, Refund of
+    liquidated damages, Other Interest
+  Employee Cost & A&G Expenses ....... "Employee cost and A&G expenses
+                                       provisionally approved" (6.119)
+  R&M Expenses ....................... "Summary of the O&M expenses
+                                       provisionally approved" (6.124,
+                                       years down the rows)
+  Interest on outstanding Loans / Term Loans, Security Deposit, GPF,
+  Master Trust Bond, Carrying cost on revenue gap, Interest on working
+  capital ... "Summary of the interest and finance charges- claimed and
+                approved for SBU-D" (6.158, KSERC half)
+
+
+--------------------------------------------------------------------------------
+B9. STAGE (iii) - PETITION CLAIMS (petition_claims.py)
+--------------------------------------------------------------------------------
+Petition tables read (title pattern -> claimed column):
+  SBU-G  "ARR OF GENERATION BUSINESS UNIT" (G8)  -> "TU Sought"
+         "Interest and finance charges" (G10)    -> "TU" (exact)
+         "Details of O&M expenses" (G13)         -> "TU" (word boundary;
+              a plain "TU" matched inside "AcTUal" and gave +2452%);
+              only Employee/A&G/R&M rows; blank claims explained
+  SBU-T  "ARR OF TRANSMISSION BUSINESS UNIT" (T8/T6) -> "Truing up
+              requirement"
+         "Summary of Interest and Finance charges" -> "True-up requirement"
+  SBU-D  "ARR & ERC OF DISTRIBUTION BUSINESS UNIT" (D76/D89) -> "True up"
+         "Components of O&M Expenses for SBU D" (D75) -> "True up claim"
+         "Comparison of I&FC for <year>" (D65/D77) -> "True up claim"
+  Each also reads the petition's own "Approved" and "Actual(s)/Accounts"
+  columns for reference.
+
+How a claim is read for one row:
+  1. find_label gives the label and its column.
+  2. table_offset: if the header's "Particulars" column and the row's label
+     column differ, every column lookup is shifted by that difference
+     (whole-table offset, petition 2023-24 G10).
+  3. Find the header column matching the claimed pattern; subtract offset.
+  4. _shifted_index: if that column is empty in EVERY row and the column to
+     its left has a blank header and is at least half filled, use the left
+     one (petition 2024-25 T6). Applied after the offset, never before.
+  5. _row_shifted_index: for one row whose named cell is missing entirely
+     (None) while the blank-header cell to its left holds a number, use the
+     left one (SBU-D "Sharing of gains ..." row).
+  6. _realign_row: a value sitting under a padding (None) header column with
+     a blank cell before it -> drop the blank (petition G8 Net ARR row).
+  7. recover_g8_tail: legacy fallback that rebuilds G8's last rows from
+     page text if a page break lost them (no longer needed in practice).
+
+Matching claims to schema fields (match_schema_to_petition):
+  - Label match after normalisation, including alias groups:
+      SBU-T: "Repayment of existing master trust" = "... bond" = "Repayment
+             of bond to master trust"; Net ARR truncations; "Interest on
+             Outstanding Capital" = "... Liabilities"; "Refund of
+             liquidated damages" = "Refunded liquidated damages"
+      SBU-D: "Cost of Power Purchase incl RLDC" = "... charges"; four
+             wordings of "Sharing of gains ... T&D loss (reduction)";
+             "Non-Tariff Income" = "Less Non Tariff Income"; "Interest on
+             outstanding Loans" = "Interest on Term Loans"
+  - Scoped: the petition table's "tuo_title_pattern" must match the schema
+    field's source table title (stops e.g. an unrelated "Sub total" from
+    matching an interest "Sub Total").
+  - No separate claim groups: SBU-T Employee/A&G/R&M; SBU-D Net ARR.
+
+New claim lines (new_petition_lines):
+  - Reads the summary table(s) flagged report_new_lines (G8, T8/T6,
+    D76/D89).
+  - A row is "new" if it has a claimed value, its label (and aliases) is
+    not among the labels of last year's matching summary table, and its
+    claimed amount isn't already claimed under another field (the SBU-T
+    summary repeats the interest breakdown under other names).
+  - New lines are added as extra schema fields flagged new_in_petition.
+
+
+--------------------------------------------------------------------------------
+B10. JOIN, DEVIATION AND THE SAVED COMPARISON (compare.py, comparison.py)
+--------------------------------------------------------------------------------
+build_comparison(budget, claims):
+  - Rows = every field from the ARR side (in map order) + any new petition
+    line not on the ARR side. Petition rows with no ARR entry otherwise
+    are left out (e.g. SBU-T's interest "Total", a repeat).
+  - to_float handles "12,982.59", "(-)2939.12", "(- )1,323.75", blanks.
+  - deviation_abs = round(claimed - approved, 2);
+    deviation_pct = round(deviation_abs / |approved| * 100, 2), none if
+    approved is 0 or either side missing.
+  - needs_review if either side flagged it; a new line with no ARR entry
+    gets needs_review + an explanation.
+
+Field record (one row of the dashboard):
+  field_label, schema_table_no, unit, arr_approved, petition_claimed,
+  deviation_abs, deviation_pct, note (no ARR line reason), claim_note (no
+  separate claim reason), lookup_problem, new_in_petition, needs_review,
+  arr_pages, petition_pages, reviewed,
+  where each figure came from: arr_table_no, arr_row_label,
+  petition_table_no, petition_actuals (the petition's own actual),
+  set by the reviewer tools: arr_manual / note_original (an ARR figure typed
+  in for a line without one), claim_manual / claim_note_original,
+  added_manually (a petition line added by hand),
+  set on the Draft order page: decision (pending | accepted | modified |
+  disallowed; missing = pending), commission_approved (only for modified),
+  reason, excluded (left out of the order).
+  The approved figure used in the order (effective_approved): the claim if
+  accepted, 0.00 if disallowed, commission_approved if modified, none
+  while pending. Typing a figure equal to the claim records "accepted".
+
+Saved comparison (backend/comparisons/<id>/data.json):
+  comparison_id, sbu, tuo_doc_id, arr_doc_id, petition_doc_id, the three
+  filenames and labels, target_year, schema_field_count,
+  settings {pct_threshold: 10.0, abs_threshold: 1.0}, input_errors,
+  input_warnings, fields [...]
+
+Significance: |deviation %| >= pct_threshold AND |deviation| >=
+abs_threshold (both editable). The list view shows "N fields - M flagged"
+where flagged = needs review or significant.
+
+Editing a value (PATCH .../fields/{i}) stores the new text and recomputes
+the deviation. Marking reviewed stores reviewed: true.
+
+Input guard (check_inputs) - exact rules:
+  ERRORS (comparison refused):
+    - target year not a valid YYYY-YY financial year
+    - the same document in two slots
+    - a document of the wrong type in a slot (e.g. a petition as the ARR)
+    - target year outside the ARR's control period
+    - petition's year differs from the target year
+  WARNINGS (shown, not blocking):
+    - a document's type couldn't be confirmed ("unknown")
+    - the Truing Up Order's year is the same as or later than the target
+      (normally last year's order is the template)
+    - coverage: no claimed values found at all / no approved values found
+      at all / no fields compared (layout probably differs - check pages)
+  Old comparisons are re-checked when opened (ensure_checked): if any of
+  their documents was deleted, or the inputs were mismatched, they are
+  labelled "Mismatched documents - results not meaningful".
+
+
+--------------------------------------------------------------------------------
+B11. STORED DATA FORMATS
+--------------------------------------------------------------------------------
+backend/uploads/<doc_id>/
+  source.pdf     the uploaded file
+  status.json    only while processing or after failure:
+                 {"state": "processing" | "failed", "filename", "error"?}
+  data.json      {
+                   "doc_id", "filename", "extraction_version": 8,
+                   "doc_meta": {"doc_type", "fiscal_year",
+                                "control_period": [...]},
+                   "sbus": {
+                     "G" | "T" | "D" | "C1" | "C4" | ... | "CA": {
+                       "order_tables": [ {table_no, title, pages,
+                          header, unit_row, data_rows, needs_review,
+                          reviewed,
+                          layout: {widths: [pt per column],
+                                   header_rows: [[{col, colspan, rowspan,
+                                                   text}, ...], ...]}} ],
+                       "reference_tables": [...],
+                       "appendix_tables": [...],
+                       "unclassified_fragments": [...],
+                       "blocks": [ {type: "heading"|"para", text,
+                                    style: {bold, italic, size, x0,
+                                            indent}}
+                                 | {type: "table", bucket, index} ],
+                       "chapter_heading", "pages": [first, last],
+                       "label", "text": [{page, text}]
+                     }  (or {"error": "..."} when an SBU has no chapter)
+                   }
+                 }
+GET /api/documents returns per document: doc_id, state, updating
+(extraction_version older than the code's), filename, sbus_available,
+chapter_count, order_table_count, needs_review_count, chapter_heading,
+doc_type, label, fiscal_year, control_period. Processing/failed documents
+return their status.json content instead.
+Legacy data (before per-SBU extraction) is converted on load into
+sbus["G"].
+Reviewer work survives re-extraction: tables marked reviewed keep their
+(edited) rows, matched by table number + title.
+
+
+--------------------------------------------------------------------------------
+B12. FRONTEND DETAILS (frontend/app.js)
+--------------------------------------------------------------------------------
+  - Header: title, Documents / Compare tabs, upload form (PDF only).
+  - Documents view:
+      loadDocList - fetches the list, renders cards (processing, failed
+        with "Dismiss", ready, "Updating..."), re-polls every 4 s if any
+        document is busy; after an upload it selects the new document when
+        ready.
+      selectDocument / renderDocument - chapter tabs in page order
+        (sectionKeys / sectionLabel), toolbar with Delete document, the
+        chapter heading and counts, collapsible "Chapter text", then a card
+        per table (renderTableCard): number badge, title, pages, flags
+        (Needs manual review / Reviewed), editable grid (header row, unit
+        row, data rows padded to the widest row), buttons "View source
+        page" and "Mark reviewed". Unclassified fragments and reference
+        tables are listed after the order tables.
+      saveGrid - on edit, PATCHes the table's rows (with ?sbu=<chapter>).
+      viewSourcePages - opens a side panel with the PNG of each page.
+  - Compare view:
+      loadComparisonList - "SBU-x - year - petition file" with "N fields -
+        M flagged" or "Mismatched documents - results not meaningful".
+      renderNewComparisonForm - business unit select (from /api/sbus),
+        one select per slot listing only documents of that type (plus
+        unrecognised ones), target year prefilled from the petition.
+      submitNewComparison - POST; shows the server's error text if refused.
+      renderComparisonDetail - banner (SBU, FY, documents, "N of M schema
+        fields mapped and compared"), red error / amber warning notices,
+        threshold inputs, table: Field (unit) | ARR Approved | Petition
+        Claimed | Deviation | % | Flags | Source buttons | Reviewed.
+        Significant rows highlighted (isSignificant); cells editable unless
+        the row has a "no ARR line"/"no separate claim" note.
+      Flags: Needs review (tooltip = lookup_problem), Recovered, New line,
+        No separate claim, No ARR line, Not in order (removed on the Draft
+        order page).
+      Reviewer tools: addArrValue ("Add ARR value"), showNearby / useNearby-
+        Value ("Check nearby in ARR / petition", pick a cell), removeField
+        (a new petition line).
+  - Draft order page (showOrderDraft / renderOrderDraft):
+      a row per cost head: decision select, approved figure, reason
+      (saveDecision PATCHes them), "Last year" (showPrecedent - the previous
+      order's paragraphs on the head), "Remove" (setExcluded; removed heads
+      listed below with "Restore"); "Accept all remaining claims"
+      (acceptRemaining, confirmed); downloadOrder fetches the Word file,
+      showing "Preparing...", then the saved name and size, or the error.
+
+
+--------------------------------------------------------------------------------
+B13. EVERY DOCUMENTED PROBLEM AND ITS FIX (PROJECT_BRIEF.md findings 1-19)
+--------------------------------------------------------------------------------
+   1. Each document type numbers tables differently (2.1 / G8 / 4.61) -
+      one heading pattern handles all.
+   2. Chapter numbers and pages differ per document (SBU-G is Ch.2 in the
+      order, Ch.4 in the ARR) - found dynamically, never hardcoded.
+   3. One keyword can't find a chapter (ARR says "ARR&ERC of SBU-G", never
+      "Generation") - match by name OR code.
+   4. Chapter titles sit on the lines after "CHAPTER-N" - read a 4-line
+      window.
+   5. Tables continue across pages without a repeated header - merged.
+   6. Regulations tables quoted in the documents ("Table V(3)") - kept as
+      reference tables, not order data.
+   7. pdfplumber merges two adjacent tables - split where a row is itself a
+      table heading.
+   8. Multi-line header cells - joined into one string.
+   9. Scanning big PDFs is slow (~0.15 s/page; ARR 493 pages) - chapters
+      found in one pass and reused for all chapters.
+  10. Unlabelled "Table None" fragments - reduced by the rules here;
+      leftovers kept as unclassified fragments, never forced into tables.
+  11. A continuation's first row can be invisible to pdfplumber - rebuilt
+      from text lines above the table.
+  12. Mapping by table NUMBER broke across years - map by TITLE.
+  13. Continuation pages with a different column count - first patched for
+      G8, now handled generally (#18).
+  14. Whole-table column offsets in one year's table - corrected by the
+      "Particulars" column position.
+  15. Matching by label alone cross-matched unrelated "Sub total" rows -
+      scoped by source table title.
+  16. Chapter detection for all SBUs - numbers must increase; headings
+      naming several SBUs are shared chapters.
+  17. Overflowing text woven into the next row's cell - fixed by line
+      geometry, letters only.
+  18. Page-break merge by column position, with supporting rules (drop
+      nested tables, header-led tables are new, paragraphs aren't data,
+      drop repeated headers). Fragments fell sharply, e.g. 2024-25 petition
+      SBU-D 225 -> 131, SBU-T 18 -> 4.
+  19. Lettered parts "(a)/(b)" are separate tables; padding never drops a
+      value.
+  Comparison-side fixes found along the way: column "TU" matching inside
+  "Actual" (word boundary); Net ARR duplicate rows (dedupe by ARR target);
+  offset + shift applied twice (order fixed); revenue gap sign; trailing
+  years in labels; claims repeated under other names in new-line detection.
+
+
+--------------------------------------------------------------------------------
+B15. STAGE (iv) - GENERATING THE DRAFT TRUING UP ORDER
+--------------------------------------------------------------------------------
+  Files: backend/order_draft.py (decisions, building the drafts),
+  backend/order_style.py (the KSERC house style), backend/order_consolidated.py
+  (tables combining the three units). Page: Compare -> a comparison ->
+  "Draft order".
+
+  1. Decisions (order_draft.decision_of / apply_decision)
+     - Every cost head starts PENDING. The reviewer picks Accept claim,
+       Modify (types the approved figure) or Disallow, and writes the
+       reason. Typing a figure equal to the claim records "accepted".
+     - Nothing is accepted by default: an earlier version accepted every
+       claim unless changed, so a draft said "the Commission hereby
+       approves ..." for items nobody had looked at. "Accept all remaining
+       claims" is the explicit, confirmed way to accept many at once (it
+       skips decided items, removed items and items with nothing claimed).
+     - "Last year" (precedent): the previous order's paragraphs that
+       discuss the head (most of its key words, plus "Commission"), shown
+       for reference, never copied.
+     - "Remove": the head is left out of both drafts (its rows in the
+       claimed/approved tables and its decision sentence); it stays in the
+       comparison and can be restored.
+
+  2. The full order (build_full_docx) - "Download full order (Word)"
+     - Every chapter of the previous order (Introduction, SBU-G, SBU-T,
+       Energy Sales, SBU-D, Common Expenses, Consolidated, Annexures), in
+       page order, rebuilt block by block from the layout learned at
+       extraction (B2 i-j):
+         heading      -> same size / indent; the chapter title centred
+         paragraph    -> last year's wording, financial years moved on by
+                         one (2023-24 -> 2024-25, 31.03.2024 -> 31.03.2025),
+                         every figure and date in it highlighted for
+                         checking; a sentence by which the Commission
+                         approves a head ("Commission hereby approves ...")
+                         is rewritten from the recorded decision (or a
+                         highlighted "decision pending" note)
+         table        -> its caption, then the table rebuilt: a row whose
+                         label is a compared item gets this year's MYT /
+                         actual / claim / approved / difference figures in
+                         the columns with those headings; any other figure
+                         becomes a highlighted [ ] - never last year's
+                         number (short ones like "831" included); other
+                         text is carried over
+     - Tables combining the three units (order_consolidated): Table 1.1
+       (Chapter 1) and Chapter 7 - 7.1 summary, 7.3 O&M total, 7.4 interest
+       by item, 7.5 depreciation, 7.7 Master Trust bonds, 7.8 return on
+       equity, 7.9 non-tariff income - are filled by adding up the three
+       units' comparisons for the same documents and year, row by row from
+       a curated map (each row lists the items it adds up). Derived rows:
+       Net Expenditure (A) = the three ARRs less SBU-D's cost of generation
+       and intra-state transmission (what one unit charges another);
+       Revenue = Net Expenditure + gap - non-tariff income; Total Income =
+       Net Expenditure + gap. Tables 7.10-7.12 reprint each unit's own ARR
+       summary and are filled from that unit's comparison. A row is filled
+       only when every part is known; approvals only once every part has a
+       decision.
+       Checked against the 2023-24 order: filling its own combined tables
+       from FY2023-24 data reproduces every printed figure except five
+       misprints in that order - the Edamon-Kochi MYT 14.94 printed a row
+       too high (in 1.1 and 7.1), "Exceptional item" 15.40 where the
+       petitions add up to 15.56, 7.7's 61.77 where its own total implies
+       61.17, and the revenue gap row's "Deviation" printed with the
+       opposite sign.
+     - Builds in ~10 s for ~255 tables.
+
+  3. The house style (order_style.py) - measured from the real 2023-24
+     order PDF and used by both drafts:
+       page             A4; margins 25.4 mm left / ~24 mm right; page
+                        number centred at the foot (Arial 11)
+       body             Arial 12, justified, ~14 pt between lines
+       numbered clause  "2.5" at the margin, its text hanging 36 pt in
+       chapter title    Arial Bold 14, centred
+       headings         Arial Bold 13/14 at their original indent
+       conclusions      Arial Bold Italic 12
+       quoted Regulation Arial Italic 11, indented
+       table caption    "Table 2.2" and the title on the next line, centred,
+                        Arial 10
+       tables           Arial 9; the printed column widths; spacer columns
+                        dropped; multi-row headings with merged cells (e.g.
+                        Table 2.3's "ARR&ERC Order dated 25.06.2022" over
+                        Gross / Aux / Net generation); figures right-
+                        aligned; Total rows bold; heading rows repeat on
+                        each page
+     For speed, table cells use three Word paragraph styles ("KSERC Table",
+     "... Heading", "... Figure") and are written as raw XML.
+
+  4. The chapter summary (build_docx) - "Chapter summary only"
+     - One unit's chapter: the chapter title, an opening note (how many
+       items are decided / removed), a summary table of every cost head
+       (MYT order, claimed, approved by the Commission or "pending",
+       difference), then a heading and paragraph per cost head stating the
+       MYT approval and the decision, with the Commission's conclusion in
+       bold italic and the reviewer's reason (or a placeholder).
+
+  5. What it can't do: write this year's reasoning (carried-over wording is
+     last year's and must be rewritten - no AI by design), fill tables whose
+     figures aren't mapped yet (most detail tables) or come from outside
+     data (inflation indices, Government orders), or decide approvals.
+     The draft says DRAFT at the top and marks everything still to do.
+
+
+--------------------------------------------------------------------------------
+B14. HOW THE NUMBERS WERE VERIFIED (so you can explain trust)
+--------------------------------------------------------------------------------
+  - ARR side: each approved value for 2023-24 and 2024-25 equals the
+    Truing Up Order's own "MYT Order" column for that item (the order
+    reprints the ARR approval). Tiny rounding differences in the source
+    documents are shown as-is (ARR is the authority): SBU-T Repayment 45.79
+    vs 45.81; SBU-T ARR 1588.20 vs 1588.21; SBU-D Total ARR 19996.32 vs
+    19996.33; SBU-D Employee & A&G 3243.20 vs 3243.19.
+  - Petition side: each claimed value equals the Truing Up Order's own
+    reprint of KSEB's claim ("Truing Up claim" column), for both years.
+  - Sums: e.g. SBU-G 2023-24 interest sub-items add up to the verified
+    total 155.96.
+  - Cross-unit: SBU-D Cost of Generation = SBU-G Net ARR claim; SBU-D
+    Intra-State Transmission = SBU-T Net ARR claim.
+  - Regression: every extraction change is followed by re-extracting all
+    documents and diffing table by table; the 157 figures are re-checked by
+    test_comparison_baseline.py.
+  - Combined tables (Table 1.1, Chapter 7): the FY2023-24 comparisons added
+    up reproduce the 2023-24 order's printed figures (apart from its five
+    misprints, B15) - checked by test_order_consolidated.py.
+================================================================================

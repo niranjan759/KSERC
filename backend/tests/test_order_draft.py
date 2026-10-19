@@ -55,11 +55,20 @@ def test_draft_states_decisions_and_leaves_pending_items_as_placeholders(monkeyp
     assert "[Commission's decision on RoE is pending" in text
 
 
-def test_a_field_with_a_claim_defaults_to_accepted_and_one_without_stays_pending():
-    assert order_draft.decision_of(field()) == "accepted"
-    assert order_draft.effective_approved(field()) == "182.74"
+def test_every_field_is_pending_until_the_reviewer_decides():
+    # a claim is never accepted by default: the draft would otherwise say the
+    # Commission approves items nobody has looked at
+    assert order_draft.decision_of(field()) == "pending"
+    assert order_draft.effective_approved(field()) is None
     assert order_draft.decision_of(field(petition_claimed=None)) == "pending"
-    assert order_draft.decision_of(field(decision="pending")) == "pending"
+    assert order_draft.decision_of(field(decision="accepted")) == "accepted"
+
+
+def test_accept_remaining_claims_only_touches_pending_items_with_a_claim():
+    fields = [field(), field(decision="disallowed"), field(petition_claimed=None), field(excluded=True)]
+    assert order_draft.accept_remaining_claims(fields) == 1
+    assert [order_draft.decision_of(f) for f in fields] == ["accepted", "disallowed", "pending", "pending"]
+    assert order_draft.effective_approved(fields[0]) == "182.74"
 
 
 def test_financial_years_and_year_end_dates_move_on_but_other_years_stay():

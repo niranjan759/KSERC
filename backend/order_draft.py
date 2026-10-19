@@ -16,12 +16,25 @@ DECISIONS = ("pending", "accepted", "modified", "disallowed")
 
 
 def decision_of(field):
-    """A field's decision. Until the reviewer chooses otherwise a field with a
-    claim defaults to accepting it; one with no claim has nothing to accept
-    and stays pending."""
-    if field.get("decision"):
-        return field["decision"]
-    return "accepted" if field.get("petition_claimed") not in (None, "") else "pending"
+    """A field's decision: pending until the reviewer records one. No claim
+    is accepted by default - a draft order would otherwise state that the
+    Commission approves, as claimed, items nobody has looked at. Accepting
+    many at once is an explicit action (accept_remaining_claims)."""
+    return field.get("decision") or "pending"
+
+
+def accept_remaining_claims(fields):
+    """Record "accepted" on every pending item that has a claim and is in
+    the order (the reviewer's "Accept all remaining claims"). Items already
+    decided, removed from the order, or with nothing claimed are left as
+    they are. Returns how many were accepted."""
+    n = 0
+    for f in fields:
+        if f.get("excluded") or f.get("decision") or f.get("petition_claimed") in (None, ""):
+            continue
+        apply_decision(f, {"decision": "accepted"})
+        n += 1
+    return n
 
 
 def effective_approved(field):

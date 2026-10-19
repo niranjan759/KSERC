@@ -732,10 +732,22 @@ async function useNearbyValue(wi, ri, ci) {
 function showOrderDraft() { orderMode = true; renderComparisonDetail(); }
 function hideOrderDraft() { orderMode = false; renderComparisonDetail(); }
 
-// a field with a claim defaults to accepting it (matches order_draft.decision_of)
+// pending until the reviewer records a decision (matches order_draft.decision_of)
 function decisionOf(f) {
-  if (f.decision) return f.decision;
-  return f.petition_claimed != null && f.petition_claimed !== "" ? "accepted" : "pending";
+  return f.decision || "pending";
+}
+
+// "Accept all remaining claims": the one way to accept many items at once -
+// nothing is accepted without a reviewer choosing to
+async function acceptRemaining() {
+  const c = currentComparison;
+  const n = c.fields.filter(f => !f.excluded && !f.decision && f.petition_claimed != null && f.petition_claimed !== "").length;
+  if (!n) { alert("Every item with a claim already has a decision."); return; }
+  if (!confirm(`Record "Accept claim" for the ${n} item(s) still pending? Items already decided are not changed.`)) return;
+  const res = await fetch(`${COMPARE_API}/${currentComparisonId}/accept-remaining`, { method: "POST" });
+  if (!res.ok) { alert("Couldn't record those decisions."); return; }
+  currentComparison.fields = (await res.json()).fields;
+  renderOrderDraft();
 }
 
 function effectiveApproved(f) {
@@ -796,9 +808,10 @@ function renderOrderDraft() {
     <div class="compare-banner">
       <button class="secondary delete-comparison" onclick="hideOrderDraft()">Back to comparison</button>
       ${blocked ? "" : `<button class="delete-comparison" title="Every chapter and table, laid out like the previous order" onclick="downloadOrder('full', this)">Download full order (Word)</button>
-        <button class="delete-comparison" title="Only this business unit's chapter, as a short summary" onclick="downloadOrder('chapter', this)">Chapter summary only</button>`}
+        <button class="delete-comparison" title="Only this business unit's chapter, as a short summary" onclick="downloadOrder('chapter', this)">Chapter summary only</button>
+        <button class="secondary delete-comparison" title="Record 'Accept claim' for every item still pending" onclick="acceptRemaining()">Accept all remaining claims</button>`}
       <b>Draft Truing Up Order · SBU-${escapeHtml(c.sbu || "G")} ${SBU_NAMES[c.sbu || "G"]} · FY ${escapeHtml(c.target_year)}</b><br>
-      ${decided} of ${kept.length} items decided${removed ? `, ${removed} removed from the order` : ""} (items with a claim start as "Accept claim"). The full order follows the previous order's chapters, paragraphs and tables, with these decisions and reasons filled in;
+      ${decided} of ${kept.length} items decided${removed ? `, ${removed} removed from the order` : ""}. Every item starts as Pending: an undecided item appears in the draft as a highlighted "decision pending" note, never as approved. The full order follows the previous order's chapters, paragraphs and tables, with these decisions and reasons filled in;
       carried-over figures, empty cells and anything undecided stay highlighted for the Commission to complete.
     </div>
     ${blocked ? '<div class="notice error">The inputs of this comparison were refused, so no order can be drafted from it.</div>' : ""}

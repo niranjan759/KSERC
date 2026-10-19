@@ -2,14 +2,15 @@
 from order_draft import _carried_paragraph, _fields_by_key, _table_rows, included, progress
 
 
-def _field(label, excluded=False):
-    return {"field_label": label, "arr_approved": "331.52", "petition_claimed": "336.46", "excluded": excluded}
+def _field(label, excluded=False, **kw):
+    return {"field_label": label, "arr_approved": "331.52", "petition_claimed": "336.46", "excluded": excluded, **kw}
 
 
 def test_removed_heads_are_not_counted_or_drafted():
-    fields = [_field("Depreciation", excluded=True), _field("Return on Equity (14%)")]
-    assert [f["field_label"] for f in included(fields)] == ["Return on Equity (14%)"]
-    assert progress(fields) == {"decided": 1, "total": 1, "removed": 1}
+    fields = [_field("Depreciation", excluded=True, decision="accepted"),
+              _field("Return on Equity (14%)", decision="accepted"), _field("Other expenses")]
+    assert [f["field_label"] for f in included(fields)] == ["Return on Equity (14%)", "Other expenses"]
+    assert progress(fields) == {"decided": 1, "total": 2, "removed": 1}
 
 
 def test_removed_head_rows_are_dropped_from_order_tables():

@@ -203,6 +203,19 @@ async def update_comparison_field(comparison_id: str, index: int, update: dict):
     return field
 
 
+@app.post("/api/comparisons/{comparison_id}/accept-remaining")
+def accept_remaining_claims(comparison_id: str):
+    """The reviewer's "Accept all remaining claims": every item still pending
+    that has a claim is recorded as accepted. Nothing is accepted otherwise -
+    items start pending (order_draft.decision_of)."""
+    data = comparison.load_comparison(comparison_id)
+    if data is None:
+        raise HTTPException(404, "Comparison not found")
+    accepted = order_draft.accept_remaining_claims(data["fields"])
+    comparison.save_comparison(comparison_id, data)
+    return {"accepted": accepted, "fields": data["fields"]}
+
+
 @app.get("/api/comparisons/{comparison_id}/fields/{index}/precedent")
 def field_precedent(comparison_id: str, index: int):
     data = comparison.load_comparison(comparison_id)

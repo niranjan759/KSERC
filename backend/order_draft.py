@@ -68,9 +68,16 @@ def apply_decision(field, update):
     return field
 
 
+def included(fields):
+    """The cost heads that go into the order: every compared field except
+    the ones the reviewer removed on the draft-order page (`excluded`)."""
+    return [f for f in fields if not f.get("excluded")]
+
+
 def progress(fields):
-    decided = sum(1 for f in fields if decision_of(f) != "pending")
-    return {"decided": decided, "total": len(fields)}
+    kept = included(fields)
+    decided = sum(1 for f in kept if decision_of(f) != "pending")
+    return {"decided": decided, "total": len(kept), "removed": len(fields) - len(kept)}
 
 
 # --- last year's wording on the same head --------------------------------
@@ -134,25 +141,6 @@ def _template_facts(data):
     return chapter, myt_date
 
 
-PLACEHOLDER = re.compile(r'(\[\[.*?\]\])')
-
-
-def _write(doc, text, bold=False, style=None):
-    """Add a paragraph; [[like this]] becomes a yellow-highlighted [placeholder]."""
-    from docx.enum.text import WD_COLOR_INDEX
-    p = doc.add_paragraph(style=style)
-    for part in PLACEHOLDER.split(text):
-        if not part:
-            continue
-        if part.startswith("[[") and part.endswith("]]"):
-            run = p.add_run("[" + part[2:-2] + "]")
-            run.font.highlight_color = WD_COLOR_INDEX.YELLOW
-        else:
-            run = p.add_run(part)
-        run.bold = bold
-    return p
-
-
 def _field_paragraphs(field, sbu_label, year):
     """The paragraphs for one field. The decision sentence follows the
     previous order's own wording; the reasoning is the reviewer's text or a
@@ -191,75 +179,73 @@ def _field_paragraphs(field, sbu_label, year):
 
 
 def build_docx(data):
-    """The draft chapter as .docx bytes."""
-    from docx import Document
-    from docx.shared import Pt
+    """The draft chapter as .docx bytes, typeset in the orders' house style
+    (order_style): Arial, centred chapter title, Bold 13 headings, numbered
+    clauses with hanging text, the Commission's conclusion in bold italic."""
+    import order_style as house
 
     sbu = data.get("sbu", "G")
     year = data["target_year"]
     sbu_label = f"SBU-{sbu}"
     sbu_name = {"G": "Generation", "T": "Transmission", "D": "Distribution"}.get(sbu, sbu)
-    fields = data["fields"]
+    fields = included(data["fields"])
     chapter, myt_date = _template_facts(data)
     ch = chapter or "[[n]]"
 
-    doc = Document()
-    doc.styles["Normal"].font.name = "Times New Roman"
-    doc.styles["Normal"].font.size = Pt(11)
+    doc = house.new_document()
 
-    n = progress(fields)
-    _write(doc, f"DRAFT - prepared by the KSERC truing-up review tool for the Commission's consideration. "
-                f"{n['decided']} of {n['total']} items have a recorded decision; highlighted text marks "
-                f"what still needs the Commission's input. Figures are as printed in the petition and the "
-                f"ARR order and can be traced to their source pages in the review tool.", bold=True)
+    n = progress(data["fields"])
+    removed = f" ({n['removed']} removed by the reviewer)" if n["removed"] else ""
+    house.write_runs(doc.add_paragraph(),
+                     f"DRAFT - prepared by the KSERC truing-up review tool for the Commission's consideration. "
+                     f"{n['decided']} of {n['total']} items{removed} have a recorded decision; highlighted text marks "
+                     f"what still needs the Commission's input. Figures are as printed in the petition and the "
+                     f"ARR order and can be traced to their source pages in the review tool.", size=9, bold=True)
 
-    doc.add_heading(f"CHAPTER-{ch}", level=1)
-    doc.add_heading(f"TRUING UP OF ACCOUNTS OF STRATEGIC BUSINESS UNIT - {sbu_name.upper()} ({sbu_label})", level=1)
+    house.chapter_heading(doc, f"CHAPTER-{ch}")
+    house.chapter_heading(doc, "TRUING UP OF ACCOUNTS OF STRATEGIC BUSINESS UNIT")
+    house.chapter_heading(doc, f"{sbu_name.upper()} ({sbu_label})")
 
     clause = 0
+    conclusion = {"bold": True, "italic": True, "x0": house.LEFT_MARGIN_PT + house.HANG_PT}
 
     def numbered(text):
         nonlocal clause
         clause += 1
-        return _write(doc, f"{ch}.{clause} {text}")
+        return house.paragraph(doc, f"{ch}.{clause} {text}")
 
     numbered(f"KSEB Ltd has filed the petition for truing up of accounts of {sbu_label} for the year {year} "
              f"[[date of filing and petition number to be inserted]].")
     numbered(f"The summary of the ARR of {sbu_label} claimed by KSEB Ltd for the year {year}, with the figures "
              f"approved by the Commission, is given below.")
 
-    _write(doc, f"Table-{ch}.1", bold=True)
-    _write(doc, f"Summary of the ARR of {sbu_label} for the year {year} - claimed and approved (Rs. Cr)", bold=True)
-    table = doc.add_table(rows=1, cols=6)
-    table.style = "Table Grid"
-    for cell, text in zip(table.rows[0].cells,
-                          ("Sl No", "Particulars", "MYT Order", "Claimed by KSEB Ltd", "Approved by Commission", "Approved less claimed")):
-        cell.text = text
-        for r in cell.paragraphs[0].runs:
-            r.bold = True
+    header = ["Sl No", "Particulars", "MYT Order", "Claimed by KSEB Ltd", "Approved by Commission",
+              "Approved less claimed"]
+    rows = []
     for i, f in enumerate(fields, 1):
         approved = effective_approved(f)
         a, c = to_float(approved), to_float(f.get("petition_claimed"))
         diff = f"{round(a - c, 2):.2f}" if a is not None and c is not None else ""
-        cells = table.add_row().cells
-        for cell, text in zip(cells, (str(i), f["field_label"], f.get("arr_approved") or "",
-                                      f.get("petition_claimed") or "",
-                                      approved if approved is not None else "pending", diff)):
-            cell.text = text
+        rows.append([str(i), f["field_label"], f.get("arr_approved") or "", f.get("petition_claimed") or "",
+                     approved if approved is not None else "pending", diff])
+    house.caption(doc, f"{ch}.1", f"Summary of the ARR of {sbu_label} for the year {year} - claimed and approved (Rs. Cr)")
+    house.table(doc, header, rows, {"widths": [28, 170, 62, 65, 65, 65]}, ["", "", "(Rs. Cr)", "(Rs. Cr)", "(Rs. Cr)", "(Rs. Cr)"])
 
     numbered(f"The Commission has examined the ARR of {sbu_label} claimed by KSEB Ltd vis-a-vis the audited "
              f"accounts, the ARR&ERC Order dated {myt_date or '[[date of the MYT Order]]'}, the KSERC (Terms and "
              f"Conditions of Determination of Tariff) Regulations, 2021, and other relevant details, and decided as follows.")
 
     for f in fields:
-        doc.add_heading(f["field_label"], level=2)
+        house.heading(doc, f["field_label"])
         # the order numbers a head's opening paragraph and runs the
-        # conclusion on unnumbered beneath it
+        # conclusion on unnumbered beneath it, in bold italic as it does
         for k, text in enumerate(_field_paragraphs(f, sbu_label, year)):
             if k == 0:
                 numbered(text)
+            elif "Commission hereby approves" in text or "Commission does not approve" in text:
+                house.paragraph(doc, text, conclusion)
             else:
-                _write(doc, text)
+                house.paragraph(doc, text)
 
     buf = io.BytesIO()
     doc.save(buf)
@@ -302,32 +288,6 @@ def _mark_figures(text):
     return lead + FIGURE_PAT.sub(lambda f: "{{" + f.group(0) + "}}", text)
 
 
-def _write_marked(target, text, bold=False, italic=False, size=None, align=None):
-    """Like _write, but {{figure}} highlights without brackets, and it can
-    write into a table cell as well as the document."""
-    from docx.enum.text import WD_COLOR_INDEX
-    from docx.shared import Pt
-    p = target.add_paragraph()
-    for part in HIGHLIGHT.split(text):
-        if not part:
-            continue
-        if part.startswith("[[") and part.endswith("]]"):
-            run = p.add_run("[" + part[2:-2] + "]")
-            run.font.highlight_color = WD_COLOR_INDEX.YELLOW
-        elif part.startswith("{{") and part.endswith("}}"):
-            run = p.add_run(part[2:-2])
-            run.font.highlight_color = WD_COLOR_INDEX.YELLOW
-        else:
-            run = p.add_run(part)
-        run.bold = bold
-        run.italic = italic
-        if size:
-            run.font.size = Pt(size)
-    if align is not None:
-        p.alignment = align
-    return p
-
-
 def _column_roles(header):
     """Which of a table's columns carry the MYT figure, KSEB's claim and the
     Commission's approval, from the column headings."""
@@ -337,7 +297,9 @@ def _column_roles(header):
         if re.search(r'actual|audited|accounts', h, re.I):
             roles[i] = "actual"
             continue
-        if re.search(r'KSERC\s*Approval|Approved by', h, re.I):
+        # a heading of just "KSERC" is the Commission's column too (the
+        # SBU-D summary reprinted in Chapter 7, Table 7.12)
+        if re.search(r'KSERC\s*Approval|Approved by|^\s*KSERC\s*$', h, re.I):
             roles[i] = "approved"
         elif re.search(r'MYT|ARR\s*&?\s*ERC\s*Order|ARR\s*Approval', h, re.I):
             roles[i] = "myt"
@@ -373,9 +335,16 @@ def _table_rows(table, fields):
     header = table.get("header") or []
     roles = _column_roles(header) if len(header) <= 8 else {}
     out = []
+    from order_consolidated import is_number
     for row in table.get("data_rows", []):
-        label, _, _ = find_label(row)
+        label, label_idx, _ = find_label(row)
         field = _lookup_field(fields, label) if (label and roles) else None
+        if field and field.get("excluded"):
+            continue  # a cost head the reviewer removed from the order
+        # right of the row's label every number is a figure: one not filled
+        # from the comparison is left blank, never carried over from last
+        # year - a short one ("831", "42") included
+        label_at = label_idx if label_idx is not None else 0
         cells = []
         for ci, cell in enumerate(row):
             text = (cell or "").strip()
@@ -393,7 +362,7 @@ def _table_rows(table, fields):
                     a, c = to_float(field.get("arr_approved")), to_float(field.get("petition_claimed"))
                     value = f"{c - a:.2f}" if a is not None and c is not None else None
                 cells.append(str(value) if value not in (None, "") else "[[ ]]")
-            elif CELL_FIGURE.match(text):
+            elif CELL_FIGURE.match(text) or (ci > label_at and is_number(text)):
                 cells.append("[[ ]]")
             else:
                 cells.append(shift_year(text))
@@ -409,6 +378,8 @@ def _carried_paragraph(text, fields, sbu_label, year):
     m = DECISION_SENTENCE.search(text)
     if m and fields:
         field = _lookup_field(fields, m.group("label"))
+        if field and field.get("excluded"):
+            return []  # the decision on a head removed from the order
         if field:
             lead = CLAUSE_START_PAT.match(text)
             body = [t for t in _field_paragraphs(field, sbu_label, year) if not t.startswith("The MYT Order approved")]
@@ -433,7 +404,8 @@ def _join_hyphen_breaks(blocks):
                   and (prev["text"].endswith("-") or ABBREVIATION_END.search(prev["text"])))
         if broken:
             glue = "" if prev["text"].endswith("-") else " "
-            out[-1] = {"type": "para", "text": prev["text"] + glue + b["text"]}
+            # keeps the first part's print style (order_style sets it the same way)
+            out[-1] = {"type": "para", "text": prev["text"] + glue + b["text"], "style": prev.get("style")}
         else:
             out.append(b)
     return out
@@ -456,10 +428,6 @@ def _sibling_comparisons(data):
 
 def build_full_docx(data):
     """The whole order as .docx bytes, laid out like the previous order."""
-    from docx import Document
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Pt
-
     tuo = storage.load_data(data["tuo_doc_id"])
     sections = [(k, s) for k, s in (tuo.get("sbus") or {}).items() if "error" not in s]
     if not sections or any("blocks" not in s for _, s in sections):
@@ -472,56 +440,58 @@ def build_full_docx(data):
     siblings = _sibling_comparisons(data)
     names = {"G": "SBU-G", "T": "SBU-T", "D": "SBU-D"}
 
-    doc = Document()
-    doc.styles["Normal"].font.name = "Times New Roman"
-    doc.styles["Normal"].font.size = Pt(11)
-    _write_marked(doc, f"DRAFT TRUING UP ORDER FOR {year} - laid out like the previous order "
-                       f"({tuo.get('filename')}). Yellow marks what needs checking: figures and dates carried over "
-                       f"from the previous order's wording, a [ ] where no figure has been supplied, and [bracketed] "
-                       f"text where the Commission's decision or reasoning is still to be written. "
-                       f"Chapters for {', '.join(names[s] for s in sorted(siblings))} are filled from the "
-                       f"reviewed comparison(s); the others keep the layout only.", bold=True)
+    import order_consolidated as consolidated
+    import order_style as house
+
+    # set the way the previous order is set (see order_style): A4, Arial,
+    # its headings, hanging clause numbers and tables
+    doc = house.new_document()
+    notice = doc.add_paragraph()
+    house.write_runs(notice, f"DRAFT TRUING UP ORDER FOR {year} - laid out like the previous order "
+                             f"({tuo.get('filename')}). Yellow marks what needs checking: figures and dates carried "
+                             f"over from the previous order's wording, a [ ] where no figure has been supplied, and "
+                             f"[bracketed] text where the Commission's decision or reasoning is still to be written. "
+                             f"Chapters for {', '.join(names[s] for s in sorted(siblings))} are filled from the "
+                             f"reviewed comparison(s), and the tables combining all three business units (Chapter 1's "
+                             f"summary, Chapter 7) from the sum of them - complete only when all three units have been "
+                             f"compared; other chapters keep the layout only.", size=9, bold=True)
 
     for n, (key, sec) in enumerate(sections):
         fields = _fields_by_key(siblings.get(key))
         sbu_label = names.get(key, "")
         if n:
             doc.add_page_break()
+        seen_text = False  # the chapter's title lines come before any paragraph
         for block in sec["blocks"]:
+            style = block.get("style") or {}
             if block["type"] == "heading":
                 text = shift_year(block["text"])
-                if re.match(r'CHAPTER', text, re.I):
-                    _write_marked(doc, text, bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER)
+                centred = re.match(r'CHAPTER', text, re.I) or \
+                    (not seen_text and (style.get("x0") or 0) - house.LEFT_MARGIN_PT > 25)
+                if centred:
+                    house.chapter_heading(doc, text)
                 else:
-                    _write_marked(doc, text, bold=True)
+                    house.heading(doc, text, style)
             elif block["type"] == "para":
-                for text in _carried_paragraph(block["text"], fields, sbu_label, year):
-                    _write_marked(doc, text)
+                seen_text = True
+                for k, text in enumerate(_carried_paragraph(block["text"], fields, sbu_label, year)):
+                    # a decision rewritten into several sentences: the later
+                    # ones run on under the clause, at its hanging indent
+                    house.paragraph(doc, text, style if k == 0 else {**style, "x0": style.get("indent")})
             else:
                 table = sec[block["bucket"]][block["index"]]
-                if table.get("table_no"):
-                    _write_marked(doc, f"Table-{table['table_no']}", bold=True)
-                if table.get("title"):
-                    _write_marked(doc, shift_year(table["title"]), bold=True)
                 header = table.get("header") or []
                 if not header:
                     continue
-                rows = _table_rows(table, fields)
-                grid = doc.add_table(rows=1, cols=len(header))
-                grid.style = "Table Grid"
-                size = 8 if len(header) > 8 else 9
-                for cell, text in zip(grid.rows[0].cells, header):
-                    cell.text = ""
-                    _write_marked(cell, shift_year(text or ""), bold=True, size=size)
-                if table.get("unit_row"):
-                    for cell, text in zip(grid.add_row().cells, table["unit_row"]):
-                        cell.text = ""
-                        _write_marked(cell, text or "", italic=True, size=size)
-                for row in rows:
-                    for cell, text in zip(grid.add_row().cells, row):
-                        cell.text = ""
-                        _write_marked(cell, text, size=size)
-                doc.add_paragraph()
+                house.caption(doc, table.get("table_no"), shift_year(table.get("title") or ""))
+                # a table combining the three units (Table 1.1, Chapter 7) is
+                # filled from all three comparisons; any other from its own
+                rows = consolidated.table_rows(
+                    table, siblings, effective_approved, shift_year,
+                    unit_rows=lambda t, unit: _table_rows(t, _fields_by_key(siblings.get(unit))))
+                if rows is None:
+                    rows = _table_rows(table, fields)
+                house.table(doc, header, rows, table.get("layout"), table.get("unit_row"), shift_year)
 
     buf = io.BytesIO()
     doc.save(buf)

@@ -17,6 +17,18 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 app = FastAPI(title="KSERC Truing-Up Review API")
 
 
+@app.middleware("http")
+async def revalidate_frontend(request, call_next):
+    """Make browsers check for a newer app.js / styles.css on every load.
+    Without this a browser kept running an old app.js after an update
+    (download buttons that no longer matched the server). Unchanged files
+    still come back as a cheap 304 Not Modified."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @app.exception_handler(storage.InvalidId)
 async def invalid_id_handler(request, exc):
     return JSONResponse(status_code=404, content={"detail": "Not found"})
@@ -148,6 +160,9 @@ async def update_comparison_field(comparison_id: str, index: int, update: dict):
         raise HTTPException(404, "Field not found")
 
     field = fields[index]
+    if "excluded" in update:
+        # taken out of the draft order (or put back) - the comparison keeps it
+        field["excluded"] = bool(update["excluded"])
     if "arr_approved" in update:
         field["arr_approved"] = update["arr_approved"]
         has_value = str(update["arr_approved"] or "").strip() != ""

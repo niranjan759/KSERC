@@ -527,6 +527,7 @@ function renderComparisonDetail() {
           ${f.new_in_petition && !f.added_manually ? '<span class="flag review" title="Claimed in this petition but not a line in last year\'s Truing Up Order - check it by hand">New line</span>' : ""}
           ${f.claim_note ? `<span class="flag info" title="${escapeHtml(f.claim_note)}">No separate claim</span>` : ""}
           ${f.note ? `<span class="flag info" title="${escapeHtml(f.note)}">No ARR line</span>` : ""}
+          ${f.excluded ? '<span class="flag info" title="Removed on the Draft order page - left out of the draft order">Not in order</span>' : ""}
           ${f.claim_manual ? '<span class="flag info" title="The claimed figure was picked by the reviewer from a nearby petition row">Claim added by hand</span>' : ""}
           ${f.arr_manual ? '<span class="flag info" title="The approved figure was entered by the reviewer, not taken from the ARR">ARR added by hand</span>' : ""}
         </td>
@@ -745,24 +746,68 @@ function effectiveApproved(f) {
   return "";
 }
 
+// The Word files are fetched here rather than through a plain link, so the
+// page can say what is happening: the full order takes several seconds to
+// build, and a plain link showed nothing at all meanwhile (or ever, in a
+// browser that doesn't save downloads - such as the one built into the
+// Claude desktop app).
+async function downloadOrder(scope, btn) {
+  const status = document.getElementById("order-download-status");
+  const what = scope === "chapter" ? "chapter summary" : "full order";
+  const url = `${COMPARE_API}/${currentComparisonId}/order.docx` + (scope === "chapter" ? "?scope=chapter" : "");
+  const buttons = [...document.querySelectorAll(".compare-banner button")];
+  buttons.forEach(b => b.disabled = true);
+  status.className = "notice warn";
+  status.textContent = `Preparing the ${what}…` + (scope === "chapter" ? "" : " this takes a few seconds.");
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `${res.status} ${res.statusText}`);
+    }
+    const blob = await res.blob();
+    const name = ((res.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/) || [])[1]
+      || `Truing_Up_Order_${scope}.docx`;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    status.className = "notice";
+    status.innerHTML = `Saved <b>${escapeHtml(name)}</b> (${Math.round(blob.size / 1024)} KB) to your browser's Downloads folder. ` +
+      `If it isn't there, open <b>http://localhost:8000</b> in Chrome or Edge - the browser built into the Claude app doesn't save downloads.`;
+  } catch (e) {
+    status.className = "notice error";
+    status.textContent = `Couldn't create the ${what}: ${e.message}`;
+  } finally {
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
 function renderOrderDraft() {
   const c = currentComparison;
-  const decided = c.fields.filter(f => decisionOf(f) !== "pending").length;
+  const kept = c.fields.filter(f => !f.excluded);
+  const removed = c.fields.length - kept.length;
+  const decided = kept.filter(f => decisionOf(f) !== "pending").length;
   const blocked = (c.input_errors || []).length > 0;
   let html = `
     <div class="compare-banner">
       <button class="secondary delete-comparison" onclick="hideOrderDraft()">Back to comparison</button>
-      ${blocked ? "" : `<a class="button-link delete-comparison" title="Every chapter and table, laid out like the previous order" href="${COMPARE_API}/${currentComparisonId}/order.docx">Download full order (Word)</a>
-        <a class="button-link delete-comparison" title="Only this business unit's chapter, as a short summary" href="${COMPARE_API}/${currentComparisonId}/order.docx?scope=chapter">Chapter summary only</a>`}
+      ${blocked ? "" : `<button class="delete-comparison" title="Every chapter and table, laid out like the previous order" onclick="downloadOrder('full', this)">Download full order (Word)</button>
+        <button class="delete-comparison" title="Only this business unit's chapter, as a short summary" onclick="downloadOrder('chapter', this)">Chapter summary only</button>`}
       <b>Draft Truing Up Order · SBU-${escapeHtml(c.sbu || "G")} ${SBU_NAMES[c.sbu || "G"]} · FY ${escapeHtml(c.target_year)}</b><br>
-      ${decided} of ${c.fields.length} items decided (items with a claim start as "Accept claim"). The full order follows the previous order's chapters, paragraphs and tables, with these decisions and reasons filled in;
+      ${decided} of ${kept.length} items decided${removed ? `, ${removed} removed from the order` : ""} (items with a claim start as "Accept claim"). The full order follows the previous order's chapters, paragraphs and tables, with these decisions and reasons filled in;
       carried-over figures, empty cells and anything undecided stay highlighted for the Commission to complete.
     </div>
     ${blocked ? '<div class="notice error">The inputs of this comparison were refused, so no order can be drafted from it.</div>' : ""}
+    <div id="order-download-status"></div>
     <table class="compare-grid order-grid">
       <thead><tr><th>Field</th><th>ARR approved</th><th>KSEB claimed</th><th>Decision</th><th>Approved by Commission</th><th>Reason</th><th></th></tr></thead>
       <tbody>`;
   c.fields.forEach((f, i) => {
+    if (f.excluded) return;  // listed under "Removed cost heads" below
     const d = decisionOf(f);
     const opt = (v, label) => `<option value="${v}" ${d === v ? "selected" : ""}>${label}</option>`;
     html += `
@@ -776,11 +821,45 @@ function renderOrderDraft() {
         <td><input type="text" class="approved-input" value="${escapeHtml(effectiveApproved(f))}" ${d === "disallowed" ? "disabled" : ""}
               placeholder="figure" onchange="saveDecision(${i}, {commission_approved: this.value})"></td>
         <td><textarea rows="2" placeholder="The Commission's reasoning" onchange="saveDecision(${i}, {reason: this.value})">${escapeHtml(f.reason || "")}</textarea></td>
-        <td class="compare-actions"><button class="secondary" title="Paragraphs of last year's order on this head" onclick="showPrecedent(${i})">Last year</button></td>
+        <td class="compare-actions">
+          <button class="secondary" title="Paragraphs of last year's order on this head" onclick="showPrecedent(${i})">Last year</button>
+          <button class="secondary remove-head" title="Leave this cost head out of the draft order (it stays in the comparison; you can restore it)" onclick="setExcluded(${i}, true)">Remove</button>
+        </td>
       </tr>`;
   });
   html += `</tbody></table>`;
+
+  if (removed) {
+    html += `
+      <div class="removed-heads">
+        <div class="section-heading">Removed cost heads (${removed}) - left out of the draft order</div>
+        <table class="compare-grid order-grid"><tbody>`;
+    c.fields.forEach((f, i) => {
+      if (!f.excluded) return;
+      html += `
+          <tr class="removed-row">
+            <td>${escapeHtml(f.field_label)}${f.unit ? ` <span class="unit">(${escapeHtml(f.unit)})</span>` : ""}</td>
+            <td>${f.note ? "—" : escapeHtml(f.arr_approved ?? "")}</td>
+            <td>${f.claim_note ? "—" : escapeHtml(f.petition_claimed ?? "")}</td>
+            <td class="compare-actions"><button class="secondary" onclick="setExcluded(${i}, false)">Restore</button></td>
+          </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
   compareContentEl.innerHTML = html;
+}
+
+// Take a cost head out of the draft order, or put it back. Nothing is
+// deleted: the head stays in the comparison with its figures and decision.
+async function setExcluded(index, excluded) {
+  const res = await fetch(`${COMPARE_API}/${currentComparisonId}/fields/${index}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ excluded })
+  });
+  if (!res.ok) { alert(excluded ? "Couldn't remove that cost head." : "Couldn't restore that cost head."); return; }
+  currentComparison.fields[index] = await res.json();
+  renderOrderDraft();
 }
 
 async function saveDecision(index, update) {

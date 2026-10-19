@@ -464,6 +464,76 @@ caused a real, confirmed bug before being found and fixed.
     server start when their `extraction_version` is older than the code's
     (reviewed tables are carried over).
 
+19. **Lettered table parts are separate tables, and padding must never
+    drop a value — fixed (extraction version 7).** The 2023-24 petition's
+    p.69 has "Table D 23(a)" (ash transportation, 6 columns) and "Table D23
+    (b)Supplementary claims" (12 columns). The marker pattern read both as
+    "D23", so the second became the first's continuation, and
+    `normalize_table_rows` then cut each of its rows to 6 cells - silently
+    losing Deviation charges / IT / FERV / Others / Total (Talcher's 55.00,
+    which the petition's D24 carries as "Other supplementary claims"). The
+    marker pattern now keeps the lettered part with the number and
+    `_looks_like_marker` turns "23 (b)" into "D23(b)"; normalization only
+    trims EMPTY overflow cells (the frontend and the Word export widen the
+    grid for wider rows). An audit of all four documents found this was the
+    only table losing values to the trimming. The same split fixes other
+    merged lettered tables (G9(a)/(b), D36(a)/(b), 6.33(a)/(b), and the
+    petition's "Table 5.48" which was four tables in one).
+
+## Draft order: house style, consolidated tables, removal (2026-10-19)
+
+- **House style** (`backend/order_style.py`): both Word downloads are typeset
+  like the real orders - measured from the 2023-24 order PDF: A4, margins
+  25.4 / ~24 mm, Arial 12 justified body, numbered clauses with the text
+  hanging 36 pt in, chapter title Bold 14 centred, section headings Bold
+  13/14, the Commission's conclusions Bold Italic, quoted Regulations
+  Italic 11 indented, "Table N" + title centred Arial 10, tables Arial 9
+  with the printed column widths and multi-row headings (merged cells),
+  page number at the foot. Extraction version 8 records, for this, each
+  text block's print style (`_line_style`: bold / italic / size / left
+  edge) and each table's `layout` (`_table_geometry`: column widths +
+  header rows with colspan / rowspan). Block assembly also joins lines that
+  sit directly under each other (same paragraph), only takes BOLD short
+  lines as headings, and drops stray 9 pt table cells.
+- **Speed**: table cells use three paragraph styles ("KSERC Table",
+  "... Heading", "... Figure") and their XML is written directly; the full
+  order builds in ~10 s (python-docx's per-cell setters took 65 s).
+- **Consolidated tables** (`backend/order_consolidated.py`): Table 1.1 and
+  Chapter 7 (7.1, 7.3, 7.4, 7.5, 7.7, 7.8, 7.9) are sums of the three SBU
+  comparisons, row by row from a curated map; 7.10-7.12 are each unit's
+  own summary. Checked against the 2023-24 order: every filled MYT / claim /
+  difference cell equals the printed figure except the order's own
+  misprints (14.94 printed a row too high; exceptional item 15.40 vs 15.56;
+  7.7's 61.77 vs 61.17 that its total implies; the gap row's deviation
+  sign). Net Expenditure = the three ARRs less SBU-D's cost of generation
+  and intra-state transmission; revenue = expenditure + gap - non-tariff.
+- **Never last year's figures**: any number right of a row's label that
+  isn't filled from the comparisons is left as a highlighted [ ] - short
+  ones too ("831", "42"), which used to be carried over as text.
+- **Remove / Restore cost heads** on the Draft order page (`excluded` on a
+  field): left out of both drafts, kept in the comparison.
+- **Downloads** are fetched by the page with progress / error messages; the
+  browser built into the Claude app doesn't save downloads - use Chrome or
+  Edge. The server sends `Cache-Control: no-cache` for the frontend so a
+  browser never keeps running an old app.js.
+
+## Tests and working together
+
+`cd backend && python -m pip install -r requirements-dev.txt && python -m pytest -q tests`
+
+- `test_comparison_baseline.py` re-runs every comparison (SBU-G/T/D ×
+  FY2023-24/2024-25, 157 figures) against the hand-verified values in
+  `tests/fixtures/comparison_baseline.json`. It uses the documents uploaded
+  on that machine (uploads aren't in git) — upload the 2023-24 Truing Up
+  Order, the 2022-27 ARR and both petitions, and wait for processing; it
+  skips otherwise (also while documents are being re-extracted). If it
+  fails, a change moved a verified figure: check the PDF before touching
+  the fixture.
+- Two people work on this repo. Commit before pulling, pull before
+  starting, run the tests before pushing. Pulls have twice been left
+  half-applied (working files overwritten with older versions after the
+  pull) — `git status` showing changes you didn't make is the sign.
+
 ## What already exists
 
 Extraction (`backend/extraction/extract_sbu_g.py`): implements findings

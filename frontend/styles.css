@@ -497,3 +497,9 @@ table.order-grid td input.approved-input { width: 90px; }
 table.order-grid .unit { color: var(--muted, #777); font-weight: 400; }
 .source-page-panel .page-text pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; }
 .source-page-panel .page-no { font-size: 12px; color: #777; margin-top: 10px; }
+
+/* draft order: cost heads the reviewer left out of the order */
+.order-grid .compare-actions button.remove-head { margin-top: 4px; color: #912018; }
+.removed-heads { margin-top: 18px; }
+.removed-heads tr.removed-row td { color: var(--muted); text-decoration: line-through; }
+.removed-heads tr.removed-row td.compare-actions { text-decoration: none; }

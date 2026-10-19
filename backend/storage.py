@@ -23,7 +23,12 @@ SBUS = ("G", "T", "D")
 #       fragments; sideways column headings read in the right order
 #   6 - each section also carries its chapter laid out in order ("blocks":
 #       headings, numbered paragraphs, table references), for drafting an order
-EXTRACTION_VERSION = 6
+#   7 - lettered table parts kept apart ("D23(a)" / "D23(b)"); rows wider
+#       than their header keep their values instead of being cut to width
+#   8 - each text block carries how it was printed (bold / italic / size /
+#       indent) and each table its column widths and printed header rows
+#       with merged cells, so a new order can be typeset like the last one
+EXTRACTION_VERSION = 8
 SECTION_KEYS = ("order_tables", "reference_tables", "unclassified_fragments", "appendix_tables", "blocks", "chapter_heading", "pages", "text")
 
 

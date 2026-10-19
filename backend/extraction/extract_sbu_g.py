@@ -19,13 +19,20 @@ CHAPTER_PAT = re.compile(r'^\s*CHAPTER\s*[–—-]?\s*(\d+)\s*[:–—-]?\s*(.*)
 #     into whatever table happened to be open when pdfplumber hit that row.
 #   "Table :4.61"                    -> prefix="", num="4.61" (ARR order uses a
 #     bare colon, not a dash, right before the number on some tables)
+#   "Table D 23(a) ..." / "Table D23 (b)Supplementary ..." -> num="23(a)" /
+#     "23 (b)": the lettered part stays with the number (_looks_like_marker
+#     turns it into "D23(a)"). Two tables sharing a number apart from this
+#     part must stay two tables: read as plain "D23" both, the second (12
+#     columns) was swallowed by the first (6 columns) and lost half its
+#     columns (2023-24 petition, p.69).
 DASH = r'[-–—]'
 SEP = r'[-–—:]'
 TABLE_MARKER_PAT = re.compile(
     r'^[\s"“‘\'”’]*Table\s*' + SEP + r'?\s*([A-Za-z]{0,2})\s*' + SEP +
-    r'?\s*\(?\s*(\d+(?:\.\d+)?)\s*\)?\s*[:\-–—]?\s*(.*)$',
+    r'?\s*\(?\s*(\d+(?:\.\d+)?(?:\s*\(\s*[a-h]\s*\))?)\s*\)?\s*[:\-–—]?\s*(.*)$',
     re.I
 )
+TABLE_PART_PAT = re.compile(r'^(\d+(?:\.\d+)?)\s*(?:\(\s*([a-h])\s*\))?$', re.I)
 
 
 # "Appendix 1A : Details of capital liabilities (2024-25)-SBU G", "Appendix-2 :",
@@ -357,7 +364,12 @@ def row_as_marker(row):
 def _looks_like_marker(prefix, num):
     if prefix == "APP":
         return f"App-{num}", False
-    return f"{prefix}{num}", bool(re.match(r'^\d+\.\d+$', num)) or bool(prefix and prefix.upper() != 'V')
+    # "23 (b)" -> number "23", part "b" -> table "D23(b)"; the part doesn't
+    # change whether it's an order table ("6.33(a)" is still decimal)
+    m = TABLE_PART_PAT.match(num)
+    base, part = (m.group(1), m.group(2)) if m else (num, None)
+    table_no = f"{prefix}{base}" + (f"({part.lower()})" if part else "")
+    return table_no, bool(re.match(r'^\d+\.\d+$', base)) or bool(prefix and prefix.upper() != 'V')
 
 
 def _column_edges(table):
@@ -400,6 +412,44 @@ def _value_column_centers(table, rows, ncols):
         else:
             cols.append(None)
     return cols if any(c is not None for c in cols) else None
+
+
+def _table_geometry(table, rows, first, n_header, ncols):
+    """How a table is drawn on the page, for typesetting the next order the
+    same way: each column's width (points), and its header rows as printed,
+    with merged cells - {"col", "colspan", "rowspan", "text"} per cell, e.g.
+    "ARR&ERC Order dated 25.06.2022" spanning Gross / Aux / Net generation
+    (Table 2.3). `rows` are the table's raw rows, aligned with table.rows;
+    the header is rows[first : first + n_header]. A column's left edge is the
+    median of its cells' left edges, so one merged cell can't move it."""
+    trows = table.rows
+    edges = []
+    for j in range(ncols):
+        xs = sorted(r.cells[j][0] for r in trows if j < len(r.cells) and r.cells[j] is not None)
+        edges.append(xs[len(xs) // 2] if xs else None)
+    widths = []
+    for j in range(ncols):
+        if edges[j] is None:
+            widths.append(0.0)
+            continue
+        nxt = next((e for e in edges[j + 1:] if e is not None), table.bbox[2])
+        widths.append(round(max(nxt - edges[j], 0.0), 1))
+    header_rows = []
+    for k in range(max(n_header, 0)):
+        ri = first + k
+        if ri >= len(trows) or ri >= len(rows):
+            break
+        cells = []
+        for j, bbox in enumerate(trows[ri].cells):
+            if bbox is None or j >= ncols:
+                continue
+            colspan = 1 + sum(1 for jj in range(j + 1, ncols) if edges[jj] is not None and edges[jj] < bbox[2] - 1)
+            rowspan = 1 + sum(1 for kk in range(k + 1, n_header)
+                              if first + kk < len(trows) and trows[first + kk].bbox[1] < bbox[3] - 1)
+            cells.append({"col": j, "colspan": colspan, "rowspan": rowspan,
+                          "text": rows[ri][j] if j < len(rows[ri]) else None})
+        header_rows.append(cells)
+    return {"widths": widths, "header_rows": header_rows}
 
 
 def _nearest_column(x, cols):
@@ -601,6 +651,12 @@ def normalize_table_rows(header, rows):
     raw length directly creates visibly improper tables, even when the value
     stream itself is otherwise valid. Normalizing here keeps the browser table
     aligned without losing any meaningful value to the left or right.
+
+    Only EMPTY cells are trimmed. A row longer than its header with values
+    in the overflow keeps them (the frontend widens the grid to fit): those
+    values are real - e.g. a second table merged into the first, whose
+    Deviation charges / IT / FERV / Others / Total columns were silently
+    cut off when every row was trimmed to the header's width.
     """
     if not rows:
         return []
@@ -612,8 +668,9 @@ def normalize_table_rows(header, rows):
         cells = list(row) if row is not None else []
         if len(cells) < expected:
             cells.extend([None] * (expected - len(cells)))
-        elif len(cells) > expected:
-            cells = cells[:expected]
+        else:
+            while len(cells) > expected and cells[-1] in (None, ""):
+                cells.pop()
         out.append(cells)
     return out
 
@@ -634,11 +691,34 @@ ABBREVIATION_END = re.compile(r'(?<![A-Za-z])(?:Rs|No|Nos|Sl|Dr|Sri|Smt|viz|i\.e
 CLAUSE_START = re.compile(r'^\d{1,2}\.\d{1,3}(?:\.\d+)?\s')
 
 
+def _line_style(line):
+    """How a line is printed: bold / italic (every visible character), its
+    font size and its left edge - what tells a sub-heading (Arial Bold 13), a
+    minor heading (Bold 12), the Commission's conclusion (Bold Italic 12) and
+    a quoted Regulation (Italic 11, indented) apart from body text (Arial 12)
+    in the orders, so a new order can be typeset the same way."""
+    chars = [c for c in line.get("chars", []) if c.get("text", "").strip()]
+    if CLAUSE_START.match(line.get("text", "")):
+        # the clause number is set in plain type even when the paragraph is
+        # bold italic (2.13 "Since the overall auxiliary consumption ...")
+        while chars and chars[0]["text"] in "0123456789.":
+            chars = chars[1:]
+    names = [(c.get("fontname") or "").lower() for c in chars]
+    sizes = sorted(round(c.get("size", 0), 1) for c in chars)
+    return {
+        "bold": bool(names) and all("bold" in n for n in names),
+        "italic": bool(names) and all("italic" in n or "oblique" in n for n in names),
+        "size": sizes[len(sizes) // 2] if sizes else None,
+        "x0": round(line["x0"], 1),
+    }
+
+
 def _body_lines(page, tables):
-    """The page's running text as (top, text, right edge): everything outside
-    the tables, minus page numbers, the "Table N" title lines sitting above a
-    table (the table keeps its own title), and loose table rows that fell
-    outside every table box (three or more figures on one line)."""
+    """The page's running text as (top, text, right edge, page's right
+    margin, style): everything outside the tables, minus page numbers, the
+    "Table N" title lines sitting above a table (the table keeps its own
+    title), and loose table rows that fell outside every table box (three or
+    more figures on one line)."""
     boxes = [t.bbox for t in tables]
 
     def outside(obj):
@@ -667,7 +747,14 @@ def _body_lines(page, tables):
         figures = sum(bool(NUMERIC_CELL_PAT.match(w)) for w in words)
         if figures >= 3 and figures >= len(words) / 2:
             continue
-        out.append((l["top"], text, l["x1"], right))
+        style = _line_style(l)
+        # a short line in table type (9 pt) is a table cell drawn outside its
+        # table's box (Table 2.2's "Additional contribution to Master / Trust"
+        # straddling a page break), not text of the order
+        if style["size"] and style["size"] < 9.5 and len(words) <= 8:
+            continue
+        style["top"], style["bottom"] = round(l["top"], 1), round(l["bottom"], 1)
+        out.append((l["top"], text, l["x1"], right, style))
     return out
 
 
@@ -677,14 +764,46 @@ def assemble_blocks(items, where):
     order can follow this one's layout. Numbered clauses ("2.4 The
     Commission ...") start paragraphs; a line continues the paragraph above
     when that line ran to the right margin; a short line with no closing
-    punctuation is a heading."""
-    blocks, buf, prev_full = [], None, False
+    punctuation is a heading - when the line's font is known, only if it is
+    bold (the orders set every heading in bold; a short plain line is the
+    end of a sentence or a list item).
+
+    Each text block also carries the "style" it was printed in (see
+    _line_style): bold / italic when every line is, the font size and left
+    edge of its first line, and the left edge of its later lines ("indent"
+    - where the text of a numbered paragraph hangs)."""
+    blocks, buf, prev_full, prev_style = [], None, False, None
 
     def flush():
         nonlocal buf
         if buf:
+            buf.pop("_lines", None)
             blocks.append(buf)
             buf = None
+
+    def start(kind, text, style):
+        s = {k: v for k, v in style.items() if k not in ("top", "bottom", "page")} if style else None
+        if s:
+            s["indent"] = s["x0"]
+        return {"type": kind, "text": text, "style": s, "_lines": 1}
+
+    def tight(style, prev):
+        """The line sits directly under the previous one, at normal line
+        spacing, in the same size of type: the same paragraph, however the
+        line happens to begin ("2.3 The summary of ... claimed by" /
+        "KSEB Ltd is given below.")."""
+        return bool(style and prev and style.get("page") == prev.get("page") and style["size"] == prev["size"]
+                    and 0 <= style["top"] - prev["bottom"] <= 0.5 * (style["size"] or 12))
+
+    def extend(text, style, glue):
+        buf["text"] += glue + text
+        s = buf.get("style")
+        if s and style:
+            s["bold"] = s["bold"] and style["bold"]
+            s["italic"] = s["italic"] and style["italic"]
+            if buf["_lines"] == 1:
+                s["indent"] = style["x0"]
+        buf["_lines"] += 1
 
     for pos, it in enumerate(items):
         if it[0] == "table":
@@ -692,30 +811,42 @@ def assemble_blocks(items, where):
             bucket, index = where.get(id(it[1]), (None, None))
             if bucket:
                 blocks.append({"type": "table", "bucket": bucket, "index": index})
-            prev_full = False
+            prev_full, prev_style = False, None
             continue
-        _, text, x1, right = it
+        _, text, x1, right, *rest = it
+        style = rest[0] if rest else None
         full = x1 >= right - 25
         if CLAUSE_START.match(text):
             flush()
-            buf = {"type": "para", "text": text}
+            buf = start("para", text, style)
+        elif buf is not None and buf["type"] == "para" and tight(style, prev_style):
+            extend(text, style, "" if buf["text"].endswith("-") else " ")
         elif buf is not None and buf["text"].endswith("-"):
-            buf["text"] += text  # a word wrapped at its hyphen: "SBU-" / "G of KSEB Ltd"
+            extend(text, style, "")  # a word wrapped at its hyphen: "SBU-" / "G of KSEB Ltd"
         elif buf is not None and ABBREVIATION_END.search(buf["text"]):
-            buf["text"] += " " + text  # a sentence wrapped after "Rs." / "No."
+            extend(text, style, " ")  # a sentence wrapped after "Rs." / "No."
         elif buf is not None and (prev_full or (not buf["text"].rstrip().endswith((".", ":", ";")) and text[:1].islower())):
-            buf["text"] += " " + text
+            extend(text, style, " ")
         else:
             flush()
             following = items[pos + 1] if pos + 1 < len(items) else None
             # a line whose next line starts in lower case is the top of a
             # wrapped sentence, not a heading
             wraps = following is not None and following[0] == "line" and following[1][:1].islower()
-            if len(text) <= 90 and not text.endswith((".", ",", ";", "-")) and not text[:1].islower() and not wraps:
-                blocks.append({"type": "heading", "text": text})
+            looks_like_heading = len(text) <= 90 and not text.endswith((".", ",", ";", "-")) \
+                and not text[:1].islower() and not wraps
+            # a short line set in bold (not bold italic - that's the
+            # Commission's conclusions) is a heading even when it ends in a
+            # full stop: "Cost of Generation including fuel cost, lube oil etc."
+            bold_heading = style is not None and style["bold"] and not style["italic"] \
+                and len(text) <= 90 and not text[:1].islower() and not wraps
+            if (looks_like_heading and (style is None or style["bold"])) or bold_heading:
+                heading = start("heading", text, style)
+                heading.pop("_lines")
+                blocks.append(heading)
             else:
-                buf = {"type": "para", "text": text}
-        prev_full = full
+                buf = start("para", text, style)
+        prev_full, prev_style = full, style
     flush()
     return blocks
 
@@ -812,16 +943,19 @@ def extract_chapter(pdf_path, chapter):
                 # its header into the previous table's columns (Petition
                 # 2024-25, SBU-D power purchase tables).
                 starts_with_data = _is_data_row(rows[0])
+                remapped = False
                 if (len(rows[0]) != len(open_table["header"]) if open_table else False) \
                         and starts_with_data and not is_prose_row(rows[0]) \
                         and _is_page_continuation(t, tables, markers, open_table, pnum):
                     rows = remap_to_open_table(t, rows, open_table)
+                    remapped = True
 
                 # --- split out any embedded table titles or trailing prose hiding inside this raw table ---
                 segments = [[]]
                 seg_markers = [None]
                 seg_force_new = [False]
-                for r in rows:
+                seg_starts = [0]  # index in `rows` (= t.rows) of each segment's first row
+                for ri, r in enumerate(rows):
                     mm = row_as_marker(r)
                     if mm:
                         prefix, num, trailing = mm.group(1).upper(), mm.group(2), mm.group(3).strip()
@@ -829,6 +963,7 @@ def extract_chapter(pdf_path, chapter):
                         segments.append([])
                         seg_markers.append((table_no, is_order, trailing))
                         seg_force_new.append(True)
+                        seg_starts.append(ri + 1)
                     elif is_prose_row(r):
                         # a narrative paragraph starting right where the real table ends —
                         # split it into its own segment so it lands in unclassified_fragments
@@ -843,6 +978,7 @@ def extract_chapter(pdf_path, chapter):
                         segments.append([r])
                         seg_markers.append((None, None, None))
                         seg_force_new.append(True)
+                        seg_starts.append(ri)
                     else:
                         segments[-1].append(r)
 
@@ -971,6 +1107,11 @@ def extract_chapter(pdf_path, chapter):
                     data_rows = normalize_table_rows(header, seg_rows[data_start:])
                     if unit_row is not None:
                         unit_row = normalize_table_rows(header, [unit_row])[0]
+                    # the header rows as printed (before being merged into one
+                    # `header`), for typesetting a new order the same way
+                    first_header = seg_starts[seg_idx] + (1 if inferred_title is not None else 0)
+                    n_header = data_start - (1 if inferred_title is not None else 0) - (1 if unit_row is not None else 0)
+                    layout = None if remapped else _table_geometry(t, table_rows, first_header, n_header, len(header))
                     open_table = {
                         "table_no": marker_no,
                         "title": title,
@@ -978,6 +1119,7 @@ def extract_chapter(pdf_path, chapter):
                         "header": header,
                         "unit_row": unit_row,
                         "data_rows": data_rows,
+                        "layout": layout,
                         # page geometry, used only to merge this table's
                         # continuation on the next page; stripped on close
                         "_col_centers": _value_column_centers(t, table_rows, len(header)),
@@ -988,8 +1130,9 @@ def extract_chapter(pdf_path, chapter):
                         used_table_numbers.add(marker_no)
                     page_items.append((t.bbox[1], 0, ("table", open_table)))
 
-            for top, text, x1, right in _body_lines(page, tables):
-                page_items.append((top, 1, ("line", text, x1, right)))
+            for top, text, x1, right, style in _body_lines(page, tables):
+                style["page"] = pnum + 1
+                page_items.append((top, 1, ("line", text, x1, right, style)))
             items.extend(it for _, _, it in sorted(page_items, key=lambda x: (x[0], x[1])))
 
         close_open()

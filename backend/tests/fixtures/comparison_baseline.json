@@ -1,0 +1,799 @@
+{
+ "G 2023-24": [
+  {
+   "field": "Cost of Generation of Power",
+   "approved": null,
+   "claimed": "0.34"
+  },
+  {
+   "field": "O&M Expenses for existing stations",
+   "approved": "170.38",
+   "claimed": "175.66"
+  },
+  {
+   "field": "O&M Expenses for new stations",
+   "approved": "35.70",
+   "claimed": "13.80"
+  },
+  {
+   "field": "O&M Expenses - Total",
+   "approved": "206.08",
+   "claimed": "189.46"
+  },
+  {
+   "field": "Interest & Finance Charges",
+   "approved": "168.90",
+   "claimed": "155.96"
+  },
+  {
+   "field": "Depreciation",
+   "approved": "166.31",
+   "claimed": "159.67"
+  },
+  {
+   "field": "Repayment of master Trust Bond",
+   "approved": "21.99",
+   "claimed": "21.99"
+  },
+  {
+   "field": "Amortisation of intangible assets",
+   "approved": null,
+   "claimed": "1.20"
+  },
+  {
+   "field": "RoE",
+   "approved": "116.38",
+   "claimed": "116.38"
+  },
+  {
+   "field": "Exceptional Items",
+   "approved": null,
+   "claimed": "0.18"
+  },
+  {
+   "field": "Others",
+   "approved": null,
+   "claimed": "0.07"
+  },
+  {
+   "field": "ARR",
+   "approved": "701.26",
+   "claimed": "666.69"
+  },
+  {
+   "field": "Less Non-Tariff Income",
+   "approved": "10.81",
+   "claimed": "40.21"
+  },
+  {
+   "field": "Net ARR (Transferred to SBU-D)",
+   "approved": "690.45",
+   "claimed": "626.48"
+  },
+  {
+   "field": "Employee Cost",
+   "approved": "158.74",
+   "claimed": null
+  },
+  {
+   "field": "A&G Expenses",
+   "approved": "8.90",
+   "claimed": null
+  },
+  {
+   "field": "R&M Expenses",
+   "approved": "38.43",
+   "claimed": null
+  },
+  {
+   "field": "Interest on Capital Liabilities",
+   "approved": "118.52",
+   "claimed": "104.46"
+  },
+  {
+   "field": "Interest on GPF",
+   "approved": "12.73",
+   "claimed": "9.94"
+  },
+  {
+   "field": "Interest on Working capital",
+   "approved": "6.87",
+   "claimed": "9.21"
+  },
+  {
+   "field": "Interest on Master Trust Bonds",
+   "approved": "30.78",
+   "claimed": "31.88"
+  },
+  {
+   "field": "Other Interests",
+   "approved": null,
+   "claimed": "0.47"
+  },
+  {
+   "field": "Less: Capitalized",
+   "approved": null,
+   "claimed": "0.00"
+  },
+  {
+   "field": "Balance",
+   "approved": null,
+   "claimed": "155.96"
+  },
+  {
+   "field": "Additional contribution to Master Trust",
+   "approved": "21.6",
+   "claimed": "21.60"
+  }
+ ],
+ "G 2024-25": [
+  {
+   "field": "Cost of Generation of Power",
+   "approved": null,
+   "claimed": "5.17"
+  },
+  {
+   "field": "O&M Expenses for existing stations",
+   "approved": "177.97",
+   "claimed": "178.15"
+  },
+  {
+   "field": "O&M Expenses for new stations",
+   "approved": "43.66",
+   "claimed": "30.07"
+  },
+  {
+   "field": "O&M Expenses - Total",
+   "approved": "221.63",
+   "claimed": "208.22"
+  },
+  {
+   "field": "Interest & Finance Charges",
+   "approved": "189.37",
+   "claimed": "196.15"
+  },
+  {
+   "field": "Depreciation",
+   "approved": "175.00",
+   "claimed": "182.74"
+  },
+  {
+   "field": "Repayment of master Trust Bond",
+   "approved": "21.99",
+   "claimed": "21.99"
+  },
+  {
+   "field": "Amortisation of intangible assets",
+   "approved": null,
+   "claimed": "1.32"
+  },
+  {
+   "field": "RoE",
+   "approved": "116.38",
+   "claimed": "116.38"
+  },
+  {
+   "field": "Exceptional Items",
+   "approved": null,
+   "claimed": "0.09"
+  },
+  {
+   "field": "Others",
+   "approved": null,
+   "claimed": "0"
+  },
+  {
+   "field": "ARR",
+   "approved": "745.97",
+   "claimed": "753.66"
+  },
+  {
+   "field": "Less Non-Tariff Income",
+   "approved": "11.35",
+   "claimed": "39.61"
+  },
+  {
+   "field": "Net ARR (Transferred to SBU-D)",
+   "approved": "734.62",
+   "claimed": "714.05"
+  },
+  {
+   "field": "Employee Cost",
+   "approved": "170.72",
+   "claimed": null
+  },
+  {
+   "field": "A&G Expenses",
+   "approved": "9.57",
+   "claimed": null
+  },
+  {
+   "field": "R&M Expenses",
+   "approved": "41.33",
+   "claimed": null
+  },
+  {
+   "field": "Interest on Capital Liabilities",
+   "approved": "140.26",
+   "claimed": "149.15"
+  },
+  {
+   "field": "Interest on GPF",
+   "approved": "13.07",
+   "claimed": "8.88"
+  },
+  {
+   "field": "Interest on Working capital",
+   "approved": "7.45",
+   "claimed": "11.93"
+  },
+  {
+   "field": "Interest on Master Trust Bonds",
+   "approved": "28.59",
+   "claimed": "25.81"
+  },
+  {
+   "field": "Other Interests",
+   "approved": null,
+   "claimed": "0.38"
+  },
+  {
+   "field": "Less: Capitalized",
+   "approved": null,
+   "claimed": "0.00"
+  },
+  {
+   "field": "Balance",
+   "approved": null,
+   "claimed": "196.15"
+  },
+  {
+   "field": "Additional contribution to Master Trust",
+   "approved": "21.6",
+   "claimed": "21.6"
+  }
+ ],
+ "T 2023-24": [
+  {
+   "field": "Interest & Finance Charge",
+   "approved": "431.23",
+   "claimed": "462.22"
+  },
+  {
+   "field": "Return on Equity (14%)",
+   "approved": "119.99",
+   "claimed": "119.99"
+  },
+  {
+   "field": "Depreciation",
+   "approved": "286.45",
+   "claimed": "309.17"
+  },
+  {
+   "field": "O&M expenses",
+   "approved": "644.81",
+   "claimed": "625.20"
+  },
+  {
+   "field": "Repayment of existing master trust",
+   "approved": "45.79",
+   "claimed": "45.81"
+  },
+  {
+   "field": "Additional contribution to Master Trust",
+   "approved": "44.98",
+   "claimed": "44.98"
+  },
+  {
+   "field": "Edamon - Kochi line compensation",
+   "approved": "14.94",
+   "claimed": "8.06"
+  },
+  {
+   "field": "Pugalur – Thrissur line compensation",
+   "approved": null,
+   "claimed": "1.24"
+  },
+  {
+   "field": "Amortising of intangible assets",
+   "approved": null,
+   "claimed": "1.20"
+  },
+  {
+   "field": "Other expenses",
+   "approved": null,
+   "claimed": "0.56"
+  },
+  {
+   "field": "Exceptional items",
+   "approved": null,
+   "claimed": "0.18"
+  },
+  {
+   "field": "Incentive on Transmission Availability",
+   "approved": null,
+   "claimed": "10.49"
+  },
+  {
+   "field": "ARR",
+   "approved": "1588.20",
+   "claimed": "1629.10"
+  },
+  {
+   "field": "Less: Non-tariff Income",
+   "approved": "54.86",
+   "claimed": "75.96"
+  },
+  {
+   "field": "Net ARR (Cost Transferred to SBU-",
+   "approved": "1533.34",
+   "claimed": "1553.14"
+  },
+  {
+   "field": "Employee expenses",
+   "approved": "470.33",
+   "claimed": null
+  },
+  {
+   "field": "A&G Expenses",
+   "approved": "33.27",
+   "claimed": null
+  },
+  {
+   "field": "R&M Expenses",
+   "approved": "141.21",
+   "claimed": null
+  },
+  {
+   "field": "Interest on Outstanding Capital",
+   "approved": "316.61",
+   "claimed": "350.82"
+  },
+  {
+   "field": "Interest on GPF",
+   "approved": "26.5",
+   "claimed": "18.85"
+  },
+  {
+   "field": "Interest on Master Trust Bonds",
+   "approved": "64.13",
+   "claimed": "61.17"
+  },
+  {
+   "field": "Interest on Working capital",
+   "approved": "23.99",
+   "claimed": "30.86"
+  },
+  {
+   "field": "Other charges",
+   "approved": null,
+   "claimed": "0.52"
+  }
+ ],
+ "T 2024-25": [
+  {
+   "field": "Interest & Finance Charge",
+   "approved": "503.85",
+   "claimed": "506.91"
+  },
+  {
+   "field": "Return on Equity (14%)",
+   "approved": "119.99",
+   "claimed": "119.99"
+  },
+  {
+   "field": "Depreciation",
+   "approved": "331.52",
+   "claimed": "336.46"
+  },
+  {
+   "field": "O&M expenses",
+   "approved": "698.57",
+   "claimed": "659.03"
+  },
+  {
+   "field": "Repayment of existing master trust",
+   "approved": "45.79",
+   "claimed": "45.79"
+  },
+  {
+   "field": "Additional contribution to Master Trust",
+   "approved": "44.98",
+   "claimed": "44.98"
+  },
+  {
+   "field": "Edamon - Kochi line compensation",
+   "approved": "19.02",
+   "claimed": "7.68"
+  },
+  {
+   "field": "Pugalur – Thrissur line compensation",
+   "approved": null,
+   "claimed": "1.36"
+  },
+  {
+   "field": "Amortising of intangible assets",
+   "approved": null,
+   "claimed": "1.32"
+  },
+  {
+   "field": "Other expenses",
+   "approved": null,
+   "claimed": null
+  },
+  {
+   "field": "Exceptional items",
+   "approved": null,
+   "claimed": "0.05"
+  },
+  {
+   "field": "Incentive on Transmission Availability",
+   "approved": null,
+   "claimed": "11.52"
+  },
+  {
+   "field": "ARR",
+   "approved": "1763.72",
+   "claimed": "1735.22"
+  },
+  {
+   "field": "Less: Non-tariff Income",
+   "approved": "57.60",
+   "claimed": "80.33"
+  },
+  {
+   "field": "Net ARR (Cost Transferred to SBU-",
+   "approved": "1706.12",
+   "claimed": "1654.89"
+  },
+  {
+   "field": "Employee expenses",
+   "approved": "509.54",
+   "claimed": null
+  },
+  {
+   "field": "A&G Expenses",
+   "approved": "36.05",
+   "claimed": null
+  },
+  {
+   "field": "R&M Expenses",
+   "approved": "152.99",
+   "claimed": null
+  },
+  {
+   "field": "Interest on Outstanding Capital",
+   "approved": "390.13",
+   "claimed": "409.93"
+  },
+  {
+   "field": "Interest on GPF",
+   "approved": "27.22",
+   "claimed": "16.32"
+  },
+  {
+   "field": "Interest on Master Trust Bonds",
+   "approved": "59.55",
+   "claimed": "47.40"
+  },
+  {
+   "field": "Interest on Working capital",
+   "approved": "26.95",
+   "claimed": "32.51"
+  },
+  {
+   "field": "Other charges",
+   "approved": null,
+   "claimed": "0.75"
+  },
+  {
+   "field": "Refunded liquidated damages",
+   "approved": null,
+   "claimed": "0.13"
+  }
+ ],
+ "D 2023-24": [
+  {
+   "field": "Cost of Generation (SBU-G)",
+   "approved": "690.46",
+   "claimed": "626.48"
+  },
+  {
+   "field": "Cost of Power Purchase incl RLDC",
+   "approved": "10564.23",
+   "claimed": "12,982.59"
+  },
+  {
+   "field": "Additional contribution to Master Trust",
+   "approved": "333.42",
+   "claimed": "333.42"
+  },
+  {
+   "field": "Depreciation",
+   "approved": "285.00",
+   "claimed": "309.36"
+  },
+  {
+   "field": "Normative O&M Expenses",
+   "approved": "3605.40",
+   "claimed": "3783.56"
+  },
+  {
+   "field": "Pay revision arrears",
+   "approved": null,
+   "claimed": "7.93"
+  },
+  {
+   "field": "Return on equity (14%)",
+   "approved": "253.5",
+   "claimed": "253.5"
+  },
+  {
+   "field": "Other Expenses",
+   "approved": null,
+   "claimed": "22.19"
+  },
+  {
+   "field": "Exceptional items",
+   "approved": null,
+   "claimed": "15.2"
+  },
+  {
+   "field": "Sharing of gains due to T&D loss",
+   "approved": null,
+   "claimed": "131.59"
+  },
+  {
+   "field": "Amortisation of intangible assets",
+   "approved": null,
+   "claimed": "9.64"
+  },
+  {
+   "field": "Repayment of Bonds",
+   "approved": "339.42",
+   "claimed": "339.42"
+  },
+  {
+   "field": "Total ARR",
+   "approved": "19996.32",
+   "claimed": "22,005.88"
+  },
+  {
+   "field": "Revenue from external sale",
+   "approved": "382.16",
+   "claimed": "60.6"
+  },
+  {
+   "field": "Non-Tariff Income",
+   "approved": "801.27",
+   "claimed": "920.18"
+  },
+  {
+   "field": "Employee Cost & A&G Expenses",
+   "approved": "3044.56",
+   "claimed": null
+  },
+  {
+   "field": "R&M Expenses",
+   "approved": "560.83",
+   "claimed": null
+  },
+  {
+   "field": "Interest on outstanding Loans",
+   "approved": "501.91",
+   "claimed": "483.76"
+  },
+  {
+   "field": "Interest on Security Deposit",
+   "approved": "156.11",
+   "claimed": "146.88"
+  },
+  {
+   "field": "Interest on GPF",
+   "approved": "196.44",
+   "claimed": "164.88"
+  },
+  {
+   "field": "Other Interest",
+   "approved": null,
+   "claimed": "44.07"
+  },
+  {
+   "field": "Interest on Master Trust Bond",
+   "approved": "475.19",
+   "claimed": "477.03"
+  },
+  {
+   "field": "Carrying cost on revenue gap till 2023-24",
+   "approved": "211.91",
+   "claimed": "321.24"
+  },
+  {
+   "field": "Interest on working capital",
+   "approved": "0.00",
+   "claimed": "0"
+  },
+  {
+   "field": "Cost of Intra-State Transmission (SBU-T)",
+   "approved": "1533.34",
+   "claimed": "1553.14"
+  },
+  {
+   "field": "Interest & Finance Charges",
+   "approved": "1541.56",
+   "claimed": "1637.86"
+  },
+  {
+   "field": "Recovery of past gap",
+   "approved": "850.00",
+   "claimed": "0.00"
+  },
+  {
+   "field": "Net ARR",
+   "approved": "19195.05",
+   "claimed": null
+  },
+  {
+   "field": "Net Revenue Gap (-)/ Surplus (+)",
+   "approved": "-2939.09",
+   "claimed": "(-)1,323.75"
+  }
+ ],
+ "D 2024-25": [
+  {
+   "field": "Cost of Generation (SBU-G)",
+   "approved": "734.63",
+   "claimed": "714.05"
+  },
+  {
+   "field": "Cost of Power Purchase incl RLDC",
+   "approved": "10716.26",
+   "claimed": "12,930.60"
+  },
+  {
+   "field": "Cost of Intra-State Transmission (SBU-T)",
+   "approved": "1706.12",
+   "claimed": "1654.89"
+  },
+  {
+   "field": "Interest & Finance Charges",
+   "approved": "1499.43",
+   "claimed": "1881.33"
+  },
+  {
+   "field": "Additional contribution to Master Trust",
+   "approved": "333.42",
+   "claimed": "333.42"
+  },
+  {
+   "field": "Depreciation",
+   "approved": "328.04",
+   "claimed": "342.75"
+  },
+  {
+   "field": "Normative O&M Expenses",
+   "approved": "3830.59",
+   "claimed": "4013.29"
+  },
+  {
+   "field": "Return on equity (14%)",
+   "approved": "253.5",
+   "claimed": "253.5"
+  },
+  {
+   "field": "Recovery of past gap",
+   "approved": "850.00",
+   "claimed": null
+  },
+  {
+   "field": "Repayment of Bonds",
+   "approved": "339.42",
+   "claimed": "339.42"
+  },
+  {
+   "field": "Pay revision arrears",
+   "approved": null,
+   "claimed": null
+  },
+  {
+   "field": "Other Expenses",
+   "approved": null,
+   "claimed": "40.49"
+  },
+  {
+   "field": "Exceptional items",
+   "approved": null,
+   "claimed": "18.24"
+  },
+  {
+   "field": "Sharing of gains due to T&D loss",
+   "approved": null,
+   "claimed": "131.85"
+  },
+  {
+   "field": "Amortisation of intangible assets",
+   "approved": null,
+   "claimed": "10.58"
+  },
+  {
+   "field": "Registration charges for solar refunded",
+   "approved": null,
+   "claimed": "24.18"
+  },
+  {
+   "field": "Refund of liquidated damages",
+   "approved": null,
+   "claimed": "16.3"
+  },
+  {
+   "field": "Total ARR",
+   "approved": "20591.41",
+   "claimed": "22704.89"
+  },
+  {
+   "field": "Non-Tariff Income",
+   "approved": "841.33",
+   "claimed": "845.16"
+  },
+  {
+   "field": "Net ARR",
+   "approved": "19750.08",
+   "claimed": null
+  },
+  {
+   "field": "Revenue from external sale",
+   "approved": "118.59",
+   "claimed": "296.71"
+  },
+  {
+   "field": "Net Revenue Gap (-)/ Surplus (+)",
+   "approved": "-3020.30",
+   "claimed": "-1053.79"
+  },
+  {
+   "field": "Employee Cost & A&G Expenses",
+   "approved": "3243.20",
+   "claimed": "3305.11"
+  },
+  {
+   "field": "R&M Expenses",
+   "approved": "587.40",
+   "claimed": "708.19"
+  },
+  {
+   "field": "Interest on outstanding Loans",
+   "approved": "575.32",
+   "claimed": "567.11"
+  },
+  {
+   "field": "Interest on Security Deposit",
+   "approved": "160.76",
+   "claimed": "267.31"
+  },
+  {
+   "field": "Interest on GPF",
+   "approved": "201.77",
+   "claimed": "157.01"
+  },
+  {
+   "field": "Interest on Master Trust Bond",
+   "approved": "441.25",
+   "claimed": "456.14"
+  },
+  {
+   "field": "Carrying cost on revenue gap till 2023-24",
+   "approved": "120.33",
+   "claimed": "382.02"
+  },
+  {
+   "field": "Interest on working capital",
+   "approved": "0.00",
+   "claimed": "0"
+  },
+  {
+   "field": "Other Interest",
+   "approved": null,
+   "claimed": "51.74"
+  }
+ ]
+}

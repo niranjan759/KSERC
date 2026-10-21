@@ -166,7 +166,11 @@ BUILT and verified
     chapter, laid out and typeset like last year's) and a chapter summary.
     Chapter 1's summary table and Chapter 7's consolidated tables are filled
     by adding up the three units' comparisons. Builds in ~10 seconds.
-  - Automated tests (pytest, 41 tests).
+    Figures quoted in the wording move on to this year's where the table
+    cell they came from is filled (green). Each draft also downloads as a
+    PDF (LibreOffice, ~40 s for the full order, same 237 pages as last
+    year's).
+  - Automated tests (pytest, 45 tests).
 
 NOT BUILT yet
   - Mapping of the remaining detail tables (station-wise power purchase,
@@ -199,6 +203,11 @@ Backend libraries (backend/requirements.txt)
   - python-docx 1.2      Writes the draft Truing Up Order as an editable Word
                          file (MIT licence). Some table cells are written as
                          raw XML (via lxml, which python-docx uses) for speed.
+  - LibreOffice 26.8     (a program, not a Python package; MPL licence)
+                         Converts the Word draft to PDF, run headless by
+                         backend/order_pdf.py. Optional: without it only the
+                         PDF buttons fail, with a message saying to install
+                         it (winget install TheDocumentFoundation.LibreOffice).
 
 Dev / test
   - pytest 9             Automated tests (backend/requirements-dev.txt).
@@ -552,6 +561,8 @@ wrong result, checked against the PDF, then re-tested on all documents.
   GET    /api/comparisons/{id}/order.docx      Draft Truing Up Order (Word):
                                                full order, or ?scope=chapter
                                                for the chapter summary
+  GET    /api/comparisons/{id}/order.pdf       The same draft as a PDF
+                                               (LibreOffice; 503 if missing)
   /                                            Serves the frontend (sent with
                                                Cache-Control: no-cache, so a
                                                browser never runs an old
@@ -591,10 +602,11 @@ page inside Compare):
       "Remove" (leave the head out of the order; listed below with Restore).
     - "Accept all remaining claims" (confirmed): accepts every pending item
       with a claim.
-    - "Download full order (Word)" and "Chapter summary only": the page
-      shows "Preparing...", then the saved file name, or the error. Note:
-      the browser built into the Claude app doesn't save downloads - use
-      Chrome or Edge.
+    - "Download full order (Word)", "Full order (PDF)", "Chapter summary
+      (Word)" and "Chapter summary (PDF)": the page shows "Preparing...",
+      then the saved file name, or the error. (The browser built into the
+      Claude app doesn't save downloads - use Chrome or Edge; the page
+      itself no longer says so.)
 
 
 --------------------------------------------------------------------------------
@@ -1536,7 +1548,31 @@ B15. STAGE (iv) - GENERATING THE DRAFT TRUING UP ORDER
        petitions add up to 15.56, 7.7's 61.77 where its own total implies
        61.17, and the revenue gap row's "Deviation" printed with the
        opposite sign.
+     - Figures in the carried-over wording (figure_updates): the
+       chapter's tables are filled first; a figure printed in one or more
+       of last year's cells maps to the figure now in those cells - only
+       if every such cell has the same, known figure of the same sign, and
+       never for zero. "as against Rs.182.74 Cr claimed" -> this year's
+       claim, marked GREEN (moved on; check the sentence still holds);
+       anything else stays last year's, YELLOW. On the 2024-25 data ~30
+       figures move on today (~50 once all decisions are made); about
+       half of the ~1,040 paragraph figures are in a table, so the number
+       grows as more tables are mapped. Quoted Regulations (Italic 10/11,
+       not bold: is_quotation) are left verbatim - no year shift.
      - Builds in ~10 s for ~255 tables.
+     - PDF (order_pdf.py): the Word draft converted by LibreOffice run
+       headless with its own profile (works while LibreOffice is open);
+       ~40 s for the full order. Checked page by page against the 2023-24
+       PDF: 237 pages each, every table within 3 pages of its original
+       place (the draft lacks the order's 2 front pages).
+     - Column widths (order_style._balanced_widths): a column narrower than
+       its longest word (a label in a column extraction took as a 5 pt
+       spacer; a heading over several extracted columns of which one is
+       printed) broke words letter by letter - the first PDF ran to 278
+       pages, Table 5.90 to 14. Now no column is narrower than its longest
+       word, a column of sentences asks for up to 45% of the page, the
+       rest is shared out by what each wanted; a table that already fits
+       keeps its printed widths.
 
   3. The house style (order_style.py) - measured from the real 2023-24
      order PDF and used by both drafts:

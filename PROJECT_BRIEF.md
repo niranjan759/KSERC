@@ -954,3 +954,23 @@ noted here so the eventual design doesn't contradict earlier decisions.
   including the extraction layer's own newest addition (finding #10's
   `unclassified_fragments`), which has not yet had that verification
   pass despite the mechanism being built.
+
+## Draft order: figures in the wording, PDF, column widths (2026-10-21)
+
+- **Figures in carried-over wording** (`order_draft.figure_updates`): a
+  figure in last year's paragraph that was printed in one or more of the
+  chapter's table cells is replaced by the figure now in those cells -
+  only when all of them agree, are filled, keep their sign and aren't zero
+  - and highlighted green; everything else stays last year's, yellow.
+  Yield is bounded by table mapping: ~1,040 paragraph figures, ~560 of
+  them in a table, ~30 moved on with today's decisions (~50 if all
+  accepted).
+- **Quoted Regulations** (Italic 10/11, not bold) are carried verbatim: the
+  year shift had turned "O&M norms for FY 2022-23" into 2023-24.
+- **PDF download** (`backend/order_pdf.py`, `GET .../order.pdf`): LibreOffice
+  headless (offline, open-source), ~40 s for the full order.
+- **Column widths** (`order_style._balanced_widths` + header-span widths):
+  the first PDF ran to 278 pages because labels sat in 5 pt spacer columns
+  and broke letter by letter; now 237 pages like the original, each table
+  within 3 pages of where it printed last year.
+

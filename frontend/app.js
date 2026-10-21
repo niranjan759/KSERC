@@ -763,14 +763,17 @@ function effectiveApproved(f) {
 // build, and a plain link showed nothing at all meanwhile (or ever, in a
 // browser that doesn't save downloads - such as the one built into the
 // Claude desktop app).
-async function downloadOrder(scope, btn) {
+// A PDF is the same draft converted by LibreOffice on the server, which
+// takes up to a minute more for the full order.
+async function downloadOrder(scope, btn, format = "docx") {
   const status = document.getElementById("order-download-status");
-  const what = scope === "chapter" ? "chapter summary" : "full order";
-  const url = `${COMPARE_API}/${currentComparisonId}/order.docx` + (scope === "chapter" ? "?scope=chapter" : "");
+  const what = (scope === "chapter" ? "chapter summary" : "full order") + (format === "pdf" ? " PDF" : "");
+  const url = `${COMPARE_API}/${currentComparisonId}/order.${format}` + (scope === "chapter" ? "?scope=chapter" : "");
   const buttons = [...document.querySelectorAll(".compare-banner button")];
   buttons.forEach(b => b.disabled = true);
   status.className = "notice warn";
-  status.textContent = `Preparing the ${what}…` + (scope === "chapter" ? "" : " this takes a few seconds.");
+  status.textContent = `Preparing the ${what}…` + (scope === "chapter" ? "" :
+    format === "pdf" ? " this takes about a minute." : " this takes a few seconds.");
   try {
     const res = await fetch(url);
     if (!res.ok) {
@@ -779,7 +782,7 @@ async function downloadOrder(scope, btn) {
     }
     const blob = await res.blob();
     const name = ((res.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/) || [])[1]
-      || `Truing_Up_Order_${scope}.docx`;
+      || `Truing_Up_Order_${scope}.${format}`;
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = name;
@@ -788,8 +791,7 @@ async function downloadOrder(scope, btn) {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     status.className = "notice";
-    status.innerHTML = `Saved <b>${escapeHtml(name)}</b> (${Math.round(blob.size / 1024)} KB) to your browser's Downloads folder. ` +
-      `If it isn't there, open <b>http://localhost:8000</b> in Chrome or Edge - the browser built into the Claude app doesn't save downloads.`;
+    status.innerHTML = `Saved <b>${escapeHtml(name)}</b> (${Math.round(blob.size / 1024)} KB) to your browser's Downloads folder.`;
   } catch (e) {
     status.className = "notice error";
     status.textContent = `Couldn't create the ${what}: ${e.message}`;
@@ -808,7 +810,9 @@ function renderOrderDraft() {
     <div class="compare-banner">
       <button class="secondary delete-comparison" onclick="hideOrderDraft()">Back to comparison</button>
       ${blocked ? "" : `<button class="delete-comparison" title="Every chapter and table, laid out like the previous order" onclick="downloadOrder('full', this)">Download full order (Word)</button>
-        <button class="delete-comparison" title="Only this business unit's chapter, as a short summary" onclick="downloadOrder('chapter', this)">Chapter summary only</button>
+        <button class="delete-comparison" title="The full order as a PDF (converted by LibreOffice)" onclick="downloadOrder('full', this, 'pdf')">Full order (PDF)</button>
+        <button class="delete-comparison" title="Only this business unit's chapter, as a short summary" onclick="downloadOrder('chapter', this)">Chapter summary (Word)</button>
+        <button class="delete-comparison" title="The chapter summary as a PDF (converted by LibreOffice)" onclick="downloadOrder('chapter', this, 'pdf')">Chapter summary (PDF)</button>
         <button class="secondary delete-comparison" title="Record 'Accept claim' for every item still pending" onclick="acceptRemaining()">Accept all remaining claims</button>`}
       <b>Draft Truing Up Order · SBU-${escapeHtml(c.sbu || "G")} ${SBU_NAMES[c.sbu || "G"]} · FY ${escapeHtml(c.target_year)}</b><br>
       ${decided} of ${kept.length} items decided${removed ? `, ${removed} removed from the order` : ""}. Every item starts as Pending: an undecided item appears in the draft as a highlighted "decision pending" note, never as approved. The full order follows the previous order's chapters, paragraphs and tables, with these decisions and reasons filled in;

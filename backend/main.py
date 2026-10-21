@@ -230,13 +230,38 @@ def field_precedent(comparison_id: str, index: int):
 def download_order_draft(comparison_id: str, scope: str = "full"):
     """scope=full: the whole order laid out like the previous one;
     scope=chapter: just this comparison's SBU chapter, as a short summary."""
+    name, content = _order_draft(comparison_id, scope)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{name}.docx"'})
+
+
+@app.get("/api/comparisons/{comparison_id}/order.pdf")
+def download_order_pdf(comparison_id: str, scope: str = "full"):
+    """The same draft as order.docx, converted to PDF by LibreOffice."""
+    import order_pdf
+    name, content = _order_draft(comparison_id, scope)
+    try:
+        content = order_pdf.docx_to_pdf(content)
+    except order_pdf.NoConverter as e:
+        raise HTTPException(503, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    return Response(content=content, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'})
+
+
+def _order_draft(comparison_id, scope):
+    """(file name without extension, .docx bytes) of a comparison's draft."""
     data = comparison.load_comparison(comparison_id)
     if data is None:
         raise HTTPException(404, "Comparison not found")
     if data.get("input_errors"):
         raise HTTPException(422, "This comparison's inputs were refused; no order can be drafted from it.")
     suffix = "DRAFT" if scope == "full" else "CHAPTER_DRAFT"
-    name = f"Truing_Up_Order_{data['target_year']}_{suffix}.docx" if scope == "full" else         f"Truing_Up_Order_SBU-{data.get('sbu', 'G')}_{data['target_year']}_{suffix}.docx"
+    name = f"Truing_Up_Order_{data['target_year']}_{suffix}" if scope == "full" else \
+        f"Truing_Up_Order_SBU-{data.get('sbu', 'G')}_{data['target_year']}_{suffix}"
     try:
         if scope == "full":
             data = comparison.ensure_refs(comparison_id, data)  # fills in the petition's actuals on older comparisons
@@ -248,10 +273,7 @@ def download_order_draft(comparison_id: str, scope: str = "full"):
                                  f"Install it with: pip install -r backend/requirements.txt")
     except LookupError as e:
         raise HTTPException(409, str(e))
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    return name, content
 
 
 @app.get("/api/comparisons/{comparison_id}/fields/{index}/nearby")

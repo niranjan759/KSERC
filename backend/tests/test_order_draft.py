@@ -108,3 +108,36 @@ def test_table_rows_fill_known_heads_and_leave_other_figures_as_placeholders():
     rows = order_draft._table_rows(table, fields)
     assert rows[0] == ["1", "Depreciation", "175.00", "772.04", "182.74"]
     assert rows[1] == ["2", "Unlisted head", "[[ ]]", "[[ ]]", "[[ ]]"]
+
+
+def test_a_figure_quoted_from_a_table_moves_on_to_the_figure_now_in_that_cell():
+    old = [["1", "Depreciation", "157.02", "182.74"], ["2", "Return on Equity", "116.38", "116.38"]]
+    new = [["1", "Depreciation", "175.00", "190.12"], ["2", "Return on Equity", "120.00", "[[ ]]"]]
+    updates = order_draft.figure_updates([(old, new)])
+    assert updates == {157.02: 175.0, 182.74: 190.12}  # 116.38 is in two cells, one still blank
+    marked = order_draft._mark_figures("2.34 Approved Rs.157.02 Cr against Rs. 182.74 Cr; RoE Rs.116.38 Cr.", updates)
+    assert marked == "2.34 Approved Rs.<<175.00>> Cr against Rs. <<190.12>> Cr; RoE Rs.{{116.38}} Cr."
+
+
+def test_figures_that_now_differ_change_sign_or_sit_in_a_removed_row_are_not_moved_on():
+    old = [["a", "1.50", "(-)3.30"], ["b", "1.50", "9.10"], ["c", "4.00", "0.00"]]
+    new = [["a", "2.00", "3.30"], ["b", "2.50", "9.20"], None]
+    assert order_draft.figure_updates([(old, new)]) == {9.1: 9.2}
+
+
+def test_a_moved_on_figure_is_printed_the_way_the_old_one_was():
+    assert order_draft._format_like(123456.7, "1,05,321.20") == "1,23,456.70"
+    assert order_draft._format_like(1234.5, "1,053.79") == "1,234.50"
+    assert order_draft._format_like(1998.444, "1,998.4") == "1,998.4"
+    assert order_draft._format_like(43.6, "43.66") == "43.60"
+
+
+def test_a_quoted_regulation_keeps_its_years_but_the_commissions_own_italic_moves_on():
+    quote = {"italic": True, "bold": False, "size": 11}
+    assert order_draft.is_quotation(quote)
+    assert not order_draft.is_quotation({"italic": True, "bold": True, "size": 12})
+    assert not order_draft.is_quotation({"italic": True, "size": 12})
+    text = "To clarify, the O&M expenses for FY 2022-23 shall be allowed at 4.84%."
+    assert order_draft._carried_paragraph(text, {}, "SBU-T", "2024-25", quoted=True) == \
+        ["To clarify, the O&M expenses for FY 2022-23 shall be allowed at {{4.84}}%."]
+    assert "2023-24" in order_draft._carried_paragraph(text, {}, "SBU-T", "2024-25")[0]

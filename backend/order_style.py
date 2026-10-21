@@ -34,7 +34,20 @@ LEFT_MARGIN_PT = 72.0          # where the text block starts on the page
 TEXT_WIDTH_PT = 455.0          # 72 pt .. 527 pt
 HANG_PT = 36.0                 # clause text hangs 36 pt in from its number
 CLAUSE_START = re.compile(r'^(\d{1,2}\.\d{1,3}(?:\.\d+)?)\s+')
-MARKS = re.compile(r'(\[\[.*?\]\]|\{\{.*?\}\})')
+MARKS = re.compile(r'(\[\[.*?\]\]|\{\{.*?\}\}|<<.*?>>)')
+
+
+def _mark(part):
+    """(text shown, highlight colour or None) for a piece of MARKS-split
+    text: [[note]] -> yellow "[note]", {{figure}} -> yellow figure, <<figure>>
+    -> green figure (moved on to this year's, see order_draft)."""
+    if part.startswith("[[") and part.endswith("]]"):
+        return "[" + part[2:-2] + "]", "yellow"
+    if part.startswith("{{") and part.endswith("}}"):
+        return part[2:-2], "yellow"
+    if part.startswith("<<") and part.endswith(">>"):
+        return part[2:-2], "green"
+    return part, None
 NUMBER_CELL = re.compile(r'^\(?[-+]?[\d,]*\.?\d+\)?%?$|^-$')
 TOTAL_ROW = re.compile(r'^(sub\s*-?\s*total|grand\s+total|total)\b', re.I)
 
@@ -92,12 +105,11 @@ def new_document():
 
 def write_runs(p, text, size=None, bold=False, italic=False):
     """Text into a paragraph: [[note]] becomes a yellow "[note]" placeholder,
-    {{figure}} a yellow-highlighted figure (see order_draft)."""
+    {{figure}} a yellow-highlighted figure, <<figure>> a green one (_mark)."""
     for part in MARKS.split(text or ""):
         if not part:
             continue
-        mark = part.startswith(("[[", "{{")) and part.endswith(("]]", "}}"))
-        shown = ("[" + part[2:-2] + "]") if part.startswith("[[") else part[2:-2] if mark else part
+        shown, mark = _mark(part)
         run = p.add_run(shown)
         # the font family comes from the Normal style (Arial, new_document);
         # naming it again on each of 20,000 runs cost most of a minute
@@ -108,7 +120,7 @@ def write_runs(p, text, size=None, bold=False, italic=False):
         if italic:
             run.font.italic = True
         if mark:
-            run.font.highlight_color = WD_COLOR_INDEX.YELLOW
+            run.font.highlight_color = WD_COLOR_INDEX.YELLOW if mark == "yellow" else WD_COLOR_INDEX.BRIGHT_GREEN
     return p
 
 
@@ -247,8 +259,7 @@ def _cell_text(cell, text, style, size=None, bold=False, italic=False):
     for part in MARKS.split(text or ""):
         if not part:
             continue
-        mark = part.startswith(("[[", "{{")) and part.endswith(("]]", "}}"))
-        shown = ("[" + part[2:-2] + "]") if part.startswith("[[") else part[2:-2] if mark else part
+        shown, mark = _mark(part)
         r = etree.SubElement(p_el, qn("w:r"))
         if bold or italic or size or mark:
             rpr = etree.SubElement(r, qn("w:rPr"))  # children in the schema's order
@@ -259,10 +270,58 @@ def _cell_text(cell, text, style, size=None, bold=False, italic=False):
             if size:
                 etree.SubElement(rpr, qn("w:sz")).set(qn("w:val"), str(int(round(size * 2))))
             if mark:
-                etree.SubElement(rpr, qn("w:highlight")).set(qn("w:val"), "yellow")
+                etree.SubElement(rpr, qn("w:highlight")).set(qn("w:val"), mark)
         t = etree.SubElement(r, qn("w:t"))
         t.text = shown
         t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+
+
+CELL_PADDING_PT = 12.0  # Word's default cell margins, 0.08" each side
+PROSE_SHARE = 0.45      # of the text width, the most a column of running text asks for
+
+
+def _balanced_widths(widths, cols, header_rows, rows, size):
+    """The printed column widths, corrected where the text wouldn't fit. The
+    widths measured off the page can put a column of labels or running text
+    in a sliver (a label printed in a column the extraction took as a 5 pt
+    spacer, Table 5.90; a stakeholder's comments in Chapter 1), and in a
+    fixed-layout table Word then breaks every word letter by letter - one
+    table ran to fourteen pages. So no column is narrower than its longest
+    word, a column holding sentences asks for room up to PROSE_SHARE of the
+    page, and what that needs is taken from the columns with room to spare.
+    A table whose widths already fit is left as printed."""
+    char = 5.0 * size / TABLE_PT  # an Arial character, a little on the wide side
+    pos = {j: k for k, j in enumerate(cols)}
+    texts = [[] for _ in cols]
+    for row in rows:
+        for j in cols:
+            if j < len(row) and row[j]:
+                texts[pos[j]].append(re.sub(r'\[\[\s*\]\]', '[ ]', re.sub(r'\{\{|\}\}', '', row[j])))
+    for hr in header_rows:
+        for c in hr:
+            kept = [j for j in range(c["col"], c["col"] + c.get("colspan", 1)) if j in pos]
+            if len(kept) == 1 and c.get("text"):
+                texts[pos[kept[0]]].append(c["text"])
+    floor, wish = [], []
+    for k, cell_texts in enumerate(texts):
+        words = [w for t in cell_texts for w in t.split()]
+        need = (max((len(w) for w in words), default=0) * char) + CELL_PADDING_PT
+        longest = max((len(t) for t in cell_texts), default=0)
+        prose = any(len(t.split()) >= 4 for t in cell_texts)
+        want = min(longest * char + CELL_PADDING_PT, PROSE_SHARE * TEXT_WIDTH_PT) if prose else 0
+        floor.append(min(need, PROSE_SHARE * TEXT_WIDTH_PT))
+        wish.append(max(widths[k], floor[-1], want))
+    if all(w >= f - 0.5 for w, f in zip(widths, floor)):
+        return widths  # every word fits: the table as printed
+    room = max(TEXT_WIDTH_PT, sum(widths))
+    if sum(wish) <= room:
+        return wish
+    if sum(floor) >= room:
+        return [f * room / sum(floor) for f in floor]
+    # every column keeps its floor; the rest of the page is shared out in
+    # proportion to what each wanted beyond it
+    spare, slack = room - sum(floor), [w - f for w, f in zip(wish, floor)]
+    return [f + spare * s / (sum(slack) or 1.0) for f, s in zip(floor, slack)]
 
 
 def table(doc, header, rows, layout=None, unit_row=None, shift=lambda s: s):
@@ -277,6 +336,16 @@ def table(doc, header, rows, layout=None, unit_row=None, shift=lambda s: s):
     pos = {j: k for k, j in enumerate(cols)}
     widths_pt = (layout or {}).get("widths") or []
     widths = [widths_pt[j] if j < len(widths_pt) and widths_pt[j] > 0 else 0 for j in cols]
+    # a heading spanning several extracted columns of which only one is
+    # printed (Table 5.89's "KSERC Approval" over 6 + 81 + 6 pt, its figures
+    # in the 6 pt one) gives that column the whole span's width
+    for hr in (layout or {}).get("header_rows", []):
+        for c in hr:
+            span = range(c["col"], c["col"] + c.get("colspan", 1))
+            kept = [j for j in span if j in pos]
+            if len(kept) == 1:
+                k = pos[kept[0]]
+                widths[k] = max(widths[k], sum(widths_pt[j] for j in span if j < len(widths_pt)))
     if not any(widths):
         widths = [1.0] * len(cols)
     total = sum(widths) or 1.0
@@ -289,6 +358,7 @@ def table(doc, header, rows, layout=None, unit_row=None, shift=lambda s: s):
                         for j in range(len(header))]]
     n_head = len(header_rows) + (1 if unit_row and any((u or "").strip() for u in unit_row) else 0)
     size = TABLE_PT if len(cols) <= 9 else 8
+    widths = _balanced_widths(widths, cols, header_rows, rows, size)
 
     grid = doc.add_table(rows=n_head + len(rows), cols=len(cols))
     grid.style = "Table Grid"

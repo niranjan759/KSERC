@@ -291,14 +291,76 @@ def shift_year(text):
     return YEAR_END_DATE.sub(lambda m: f"{m.group(1)}.{int(m.group(2)) + 1}", text)
 
 
-def _mark_figures(text):
+def _mark_figures(text, updates=None):
     """Highlight the figures and dates in carried-over wording; the clause
-    number at the start is left alone."""
+    number at the start is left alone. A figure found in `updates` (see
+    figure_updates) is replaced by this year's and marked <<updated>>; any
+    other stays last year's, marked {{to check}}."""
     lead = ""
     m = CLAUSE_START_PAT.match(text)
     if m:
         lead, text = text[:m.end()], text[m.end():]
-    return lead + FIGURE_PAT.sub(lambda f: "{{" + f.group(0) + "}}", text)
+
+    def mark(f):
+        old = f.group(0)
+        value = _figure_value(old)
+        new = (updates or {}).get(round(abs(value), 2)) if value else None
+        return "<<" + _format_like(new, old) + ">>" if new is not None else "{{" + old + "}}"
+    return lead + FIGURE_PAT.sub(mark, text)
+
+
+FIGURE_VALUE = re.compile(r'^\(?\s*(\(\s*-\s*\)|-)?\s*(\d[\d,]*\.\d+|\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{5,})\s*\)?$')
+
+
+def _figure_value(text):
+    """A printed figure as a number - "1,234.56", "(-)3.30", "(3.30)" - or
+    None for anything else (dates, labels, placeholders)."""
+    m = FIGURE_VALUE.match((text or "").strip())
+    if not m:
+        return None
+    value = float(m.group(2).replace(",", ""))
+    negative = m.group(1) or (text.strip().startswith("(") and text.strip().endswith(")"))
+    return -value if negative else value
+
+
+def _format_like(value, old):
+    """`value` printed the way the figure it replaces was: the same number of
+    decimals, and Indian digit grouping (1,23,456.78) if that had commas."""
+    decimals = len(old.split(".")[1]) if "." in old else 0
+    text = f"{value:.{decimals}f}"
+    if "," not in old:
+        return text
+    whole, _, frac = text.partition(".")
+    head, tail = whole[:-3], whole[-3:]
+    while len(head) > 2:
+        tail = head[-2:] + "," + tail
+        head = head[:-2]
+    whole = (head + "," + tail) if head else tail
+    return whole + ("." + frac if frac else "")
+
+
+def figure_updates(tables):
+    """Which of last year's figures can be moved on to this year's, from a
+    chapter's tables: `tables` is [(previous order's rows, new rows)], the
+    new rows cell-for-cell beside the old (None for a removed row). A figure
+    that printed in one or more cells last year maps to the figure now in
+    those cells - only if every such cell has the same, known, new figure of
+    the same sign; otherwise (pending decision, a cell not filled, the figure
+    printed in two places that now differ) it is left out, and the wording
+    keeps last year's figure for checking. Zeros are never mapped. Returns
+    {abs(old figure): abs(new figure)}."""
+    seen = {}
+    for old_rows, new_rows in tables:
+        for old_row, new_row in zip(old_rows, new_rows):
+            for j, old in enumerate(old_row):
+                before = _figure_value(old)
+                if not before:
+                    continue
+                cell = new_row[j] if new_row is not None and j < len(new_row) else None
+                after = _figure_value(cell) if cell and "[[" not in cell else None
+                same_sign = after is not None and (after < 0) == (before < 0)
+                seen.setdefault(round(abs(before), 2), set()).add(round(abs(after), 2) if same_sign else None)
+    return {old: next(iter(new)) for old, new in seen.items() if len(new) == 1 and None not in new}
 
 
 def _column_roles(header):
@@ -344,6 +406,13 @@ def _table_rows(table, fields):
     """The table's data rows for the new order: a row whose label is a
     comparison field gets that field's figures in the MYT / claim / approved
     columns; every other figure is left as a highlighted [ ]."""
+    return [r for r in _filled_rows(table, fields) if r is not None]
+
+
+def _filled_rows(table, fields):
+    """_table_rows, one entry per data row of the previous order's table -
+    None for the row of a cost head the reviewer removed - so each new cell
+    stays beside the old one it replaces (see figure_updates)."""
     from extraction.schema_discovery import find_label
     header = table.get("header") or []
     roles = _column_roles(header) if len(header) <= 8 else {}
@@ -353,7 +422,8 @@ def _table_rows(table, fields):
         label, label_idx, _ = find_label(row)
         field = _lookup_field(fields, label) if (label and roles) else None
         if field and field.get("excluded"):
-            continue  # a cost head the reviewer removed from the order
+            out.append(None)  # a cost head the reviewer removed from the order
+            continue
         # right of the row's label every number is a figure: one not filled
         # from the comparison is left blank, never carried over from last
         # year - a short one ("831", "42") included
@@ -383,11 +453,16 @@ def _table_rows(table, fields):
     return out
 
 
-def _carried_paragraph(text, fields, sbu_label, year):
+def _carried_paragraph(text, fields, sbu_label, year, updates=None, quoted=False):
     """A paragraph of the previous order for the new one: a sentence by which
     the Commission approves a head is rewritten from the decision recorded
     for that head; any other wording is carried over with its years moved on
-    and its figures highlighted."""
+    and its figures highlighted - moved on to this year's where `updates`
+    knows them (figure_updates). A quoted Regulation (`quoted`, see
+    is_quotation) is the Regulation's own text: its years and figures stay
+    as they are, the figures highlighted for checking."""
+    if quoted:
+        return [_mark_figures(text)]
     m = DECISION_SENTENCE.search(text)
     if m and fields:
         field = _lookup_field(fields, m.group("label"))
@@ -399,7 +474,15 @@ def _carried_paragraph(text, fields, sbu_label, year):
             if body:
                 body[0] = (lead.group(0) if lead else "") + body[0]
                 return body
-    return [_mark_figures(shift_year(text))]
+    return [_mark_figures(shift_year(text), updates)]
+
+
+def is_quotation(style):
+    """A block printed as a quotation - a Regulation, Order or letter quoted
+    in Italic 10/11 (not the Commission's own Bold Italic conclusions or its
+    Italic 12 remarks)."""
+    style = style or {}
+    return bool(style.get("italic")) and not style.get("bold") and (style.get("size") or 12) < 11.5
 
 
 ABBREVIATION_END = re.compile(r'(?<![A-Za-z])(?:Rs|No|Nos|Sl|Dr|Sri|Smt|viz|i\.e|e\.g)\.$')
@@ -464,6 +547,8 @@ def build_full_docx(data):
                              f"({tuo.get('filename')}). Yellow marks what needs checking: figures and dates carried "
                              f"over from the previous order's wording, a [ ] where no figure has been supplied, and "
                              f"[bracketed] text where the Commission's decision or reasoning is still to be written. "
+                             f"Green marks a figure in the wording moved on to this year's from the table cell it was "
+                             f"quoted from - check that the sentence around it (higher / lower, accepted) still holds. "
                              f"Chapters for {', '.join(names[s] for s in sorted(siblings))} are filled from the "
                              f"reviewed comparison(s), and the tables combining all three business units (Chapter 1's "
                              f"summary, Chapter 7) from the sum of them - complete only when all three units have been "
@@ -472,6 +557,22 @@ def build_full_docx(data):
     for n, (key, sec) in enumerate(sections):
         fields = _fields_by_key(siblings.get(key))
         sbu_label = names.get(key, "")
+        # every table's new rows first: the chapter's wording quotes figures
+        # from its tables (before or after them), and a figure moves on to
+        # this year's where its table cell has (figure_updates)
+        filled = {}
+        for block in sec["blocks"]:
+            if block["type"] == "table":
+                table = sec[block["bucket"]][block["index"]]
+                if table.get("header"):
+                    # a table combining the three units (Table 1.1, Chapter
+                    # 7) is filled from all three comparisons; any other
+                    # from its own
+                    rows = consolidated.table_rows(
+                        table, siblings, effective_approved, shift_year,
+                        unit_rows=lambda t, unit: _filled_rows(t, _fields_by_key(siblings.get(unit))))
+                    filled[(block["bucket"], block["index"])] = rows if rows is not None else _filled_rows(table, fields)
+        updates = figure_updates([(sec[b][i].get("data_rows", []), rows) for (b, i), rows in filled.items()])
         if n:
             doc.add_page_break()
         seen_text = False  # the chapter's title lines come before any paragraph
@@ -479,32 +580,26 @@ def build_full_docx(data):
             style = block.get("style") or {}
             if block["type"] == "heading":
                 text = shift_year(block["text"])
-                centred = re.match(r'CHAPTER', text, re.I) or \
-                    (not seen_text and (style.get("x0") or 0) - house.LEFT_MARGIN_PT > 25)
+                centred = re.match(r'CHAPTER', text, re.I) or                     (not seen_text and (style.get("x0") or 0) - house.LEFT_MARGIN_PT > 25)
                 if centred:
                     house.chapter_heading(doc, text)
                 else:
                     house.heading(doc, text, style)
             elif block["type"] == "para":
                 seen_text = True
-                for k, text in enumerate(_carried_paragraph(block["text"], fields, sbu_label, year)):
+                for k, text in enumerate(_carried_paragraph(block["text"], fields, sbu_label, year, updates,
+                                                                  quoted=is_quotation(style))):
                     # a decision rewritten into several sentences: the later
                     # ones run on under the clause, at its hanging indent
                     house.paragraph(doc, text, style if k == 0 else {**style, "x0": style.get("indent")})
             else:
                 table = sec[block["bucket"]][block["index"]]
-                header = table.get("header") or []
-                if not header:
+                rows = filled.get((block["bucket"], block["index"]))
+                if rows is None:
                     continue
                 house.caption(doc, table.get("table_no"), shift_year(table.get("title") or ""))
-                # a table combining the three units (Table 1.1, Chapter 7) is
-                # filled from all three comparisons; any other from its own
-                rows = consolidated.table_rows(
-                    table, siblings, effective_approved, shift_year,
-                    unit_rows=lambda t, unit: _table_rows(t, _fields_by_key(siblings.get(unit))))
-                if rows is None:
-                    rows = _table_rows(table, fields)
-                house.table(doc, header, rows, table.get("layout"), table.get("unit_row"), shift_year)
+                house.table(doc, table.get("header"), [r for r in rows if r is not None],
+                            table.get("layout"), table.get("unit_row"), shift_year)
 
     buf = io.BytesIO()
     doc.save(buf)
